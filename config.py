@@ -43,6 +43,9 @@ PPSTRUCT_MAX_PAGES        = get_env_int("PPSTRUCT_MAX_PAGES", 9999)
 # Logging
 LOG_LEVEL = get_env_str("LOG_LEVEL", "INFO")  # DEBUG|INFO|WARNING|ERROR
 
+# Swagger/OpenAPI docs
+DOCS_ENABLED = get_env_int("DOCS_ENABLED", 1)  # 1=enable interactive docs
+
 # Reports
 REPORTS_DIR = get_env_str("REPORTS_DIR", "/mnt/data/reports")
 REPORT_TTL_HOURS = get_env_int("REPORT_TTL_HOURS", 72)

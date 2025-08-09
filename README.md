@@ -577,3 +577,10 @@ MIT License (see repository).
 - Initial release with FastAPI service, ppstructure integration, MarkItDown conversion, LLM JSON extraction, overlays, and tests with coverage.
 - Added mock switches (`MOCK_LLM`, `MOCK_PP`) and policy control (`PP_POLICY`).
 - Hardened tests and added coverage reports (HTML + terminal).
+
+---
+
+## 20) Swagger/OpenAPI Docs
+
+- The FastAPI app serves interactive Swagger docs at `/docs` and the OpenAPI spec at `/openapi.json`.
+- Toggle these routes with the `DOCS_ENABLED` environment variable (`1` = enabled, `0` = disabled).
