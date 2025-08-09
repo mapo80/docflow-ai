@@ -26,7 +26,12 @@ from clients import *  # unified import as clients_pkg
 
 setup_logging()
 log = get_logger(__name__)
-app = FastAPI(title="Template-Guided RAG Extractor")
+app = FastAPI(
+    title="Template-Guided RAG Extractor",
+    docs_url="/docs" if DOCS_ENABLED else None,
+    redoc_url="/redoc" if DOCS_ENABLED else None,
+    openapi_url="/openapi.json" if DOCS_ENABLED else None,
+)
 
 # ---------------- Security ----------------
 def get_api_key(x_api_key: Optional[str] = Header(None)):
