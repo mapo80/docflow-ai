@@ -1,0 +1,5 @@
+Nome campo	Descrizione	Esempio valore
+company_name	Nome della società emittente	"ACME S.p.A."
+document_type	Tipo documento	"Fattura / Invoice"
+invoice_number	Numero fattura	"INV-2025-001"
+invoice_date	Data della fattura	"2025-08-09"

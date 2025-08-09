@@ -1,0 +1,8 @@
+Estrarre dal testo fornito i seguenti campi di una fattura.
+Rispondi solo in formato JSON valido, senza testo aggiuntivo.
+
+Campi richiesti:
+- company_name: string
+- document_type: string
+- invoice_number: string
+- invoice_date: string (YYYY-MM-DD)
