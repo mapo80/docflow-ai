@@ -584,3 +584,77 @@ MIT License (see repository).
 
 - The FastAPI app serves interactive Swagger docs at `/docs` and the OpenAPI spec at `/openapi.json`.
 - Toggle these routes with the `DOCS_ENABLED` environment variable (`1` = enabled, `0` = disabled).
+
+# PPStructure Light + Cells (Integration)
+
+This bundle includes:
+- `clients/ppstructure_light.py`: mobile-only text detection + table regions + table **cells** (with text).
+- `services/bbox_mapper.py`: simple fuzzy matcher that assigns **cell boxes** to your `fields` by value.
+- `integrations/bbox_integration.py`: helper to run the pipeline and attach `locations[]` to your response.
+
+## Install
+
+```
+pip install paddleocr>=2.7.0 pdf2image>=1.16.3 Pillow>=10.0.0 numpy>=1.24.0
+# system: apt-get install -y poppler-utils
+```
+
+## Use in your endpoint
+
+```python
+from integrations.bbox_integration import attach_locations_to_response
+
+# After you have built the response dict:
+# response = {"fields": {"invoice_number": {"value":"INV-123", "confidence":0.9}, ...}, ...}
+
+response = attach_locations_to_response("/path/to/document.pdf", response)
+# Now fields may contain:
+# "locations": [ {"bbox":[x,y,w,h],"page_index":0}, ... ],
+# plus "bbox"/"page_index" aliases for the first location.
+```
+
+Notes:
+- Mapping uses **cell tokens** (with text) for better precision.
+- If your fields are not in tables, extend `bbox_mapper.py` to also use text-region OCR (enable recognition) or apply custom rules.
+- DPI defaults to 200; set env `PDF_DPI=150` for faster processing at lower resolution.
+
+## 📂 Dataset
+
+Il progetto può utilizzare un **dataset di documenti di esempio** per testare e validare l’estrazione di campi strutturati e delle relative bounding box.
+
+### Struttura del dataset di esempio
+
+| File                   | Descrizione |
+|------------------------|-------------|
+| `sample_invoice.pdf`   | Fattura in formato PDF (A4) con testo editabile. |
+| `sample_invoice.png`   | Stessa fattura rasterizzata in PNG (A4 a ~150 DPI) per simulare uno scan. |
+
+### Contenuto dei documenti
+I documenti contengono:
+- **Intestazione** con:
+  - Nome azienda (`ACME S.p.A.`)
+  - Tipo documento (`Fattura / Invoice`)
+  - Numero fattura (`INV-2025-001`)
+  - Data fattura (`2025-08-09`)
+- **Tabella prodotti** (solo a scopo di posizionamento e test delle bounding box)
+- Messaggio di cortesia a piè di pagina.
+
+### Campi da estrarre
+Il sistema è configurato per estrarre i seguenti campi:
+
+| Nome campo        | Tipo | Esempio |
+|-------------------|------|---------|
+| `company_name`    | string | `"ACME S.p.A."` |
+| `document_type`   | string | `"Fattura / Invoice"` |
+| `invoice_number`  | string | `"INV-2025-001"` |
+| `invoice_date`    | string (YYYY-MM-DD) | `"2025-08-09"` |
+
+### Bounding Box e `locations[]`
+Oltre ai valori estratti, per ogni campo il sistema può restituire:
+- `locations[]` → array di oggetti con `bbox` (`[x,y,width,height]`) e `page_index` (0-based)
+- Alias `bbox` e `page_index` → corrispondenti alla **prima** location trovata.
+
+Queste coordinate sono ottenute tramite **PP-Structure Light** con **Table Cell Detection** attivato, in modo da:
+- riconoscere la posizione esatta dei valori
+- supportare sia testo in-linea che celle di tabelle
+- gestire documenti PDF rasterizzati e immagini.
