@@ -1,9 +1,12 @@
-# syntax=docker/dockerfile:1
+# Dockerfile — downloads GGUF models and runs app
 FROM python:3.11-slim
 
-ENV PYTHONDONTWRITEBYTECODE=1     PYTHONUNBUFFERED=1     PIP_NO_CACHE_DIR=1     PIP_DISABLE_PIP_VERSION_CHECK=1     DEBIAN_FRONTEND=noninteractive
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    DEBIAN_FRONTEND=noninteractive
 
-# --- System deps commonly needed by OCR/markup libs and OpenCV ---
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     curl ca-certificates \
@@ -14,24 +17,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-# --- Python deps first (for better layer caching) ---
-# If your repo has requirements.txt it will be used; otherwise this step is skipped.
 COPY requirements.txt /app/requirements.txt
-RUN if [ -s requirements.txt ]; then \
-      python -m pip install --upgrade pip && \
-      pip install -r requirements.txt; \
-    else echo "No requirements.txt found or empty, skipping."; fi
-# ensure server available
-RUN pip install "uvicorn[standard]" "gunicorn"
+RUN python -m pip install --upgrade pip && pip install -r requirements.txt
+# extra deps for local LLM/emb
+RUN pip install "uvicorn[standard]" "gunicorn" "llama-cpp-python>=0.2.85"
 
-# --- App code ---
 COPY . /app
 
-# --- Models ---
-# Provide GGUF model URLs at build-time. Leave empty to skip download.
 ARG LLM_GGUF_URL=
 ARG EMB_GGUF_URL=
-# Optional SHA256 to verify downloads (empty to skip verification)
 ARG LLM_GGUF_SHA256=
 ARG EMB_GGUF_SHA256=
 
@@ -44,13 +38,9 @@ RUN mkdir -p "${MODELS_DIR}"
 COPY docker/download_models.sh /usr/local/bin/download_models.sh
 RUN bash /usr/local/bin/download_models.sh "${LLM_GGUF_URL}" "${EMB_GGUF_URL}" "${LLM_GGUF_SHA256}" "${EMB_GGUF_SHA256}" "${MODELS_DIR}"
 
-# --- Runtime ---
 COPY docker/start.sh /usr/local/bin/start.sh
 RUN chmod +x /usr/local/bin/start.sh /usr/local/bin/download_models.sh
 
 EXPOSE 8000
-ENV HOST=0.0.0.0 \
-    PORT=8000
-
-# If serve.py exists, it registers the overlay middleware; otherwise main:app is used.
+ENV HOST=0.0.0.0 PORT=8000
 CMD ["/usr/local/bin/start.sh"]
