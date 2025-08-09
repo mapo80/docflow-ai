@@ -21,7 +21,24 @@ class PPStructureLight:
     def __init__(self, use_gpu: bool = False, pdf_dpi: int | None = None, include_cell_text: bool = True):
         self.pdf_dpi = int(os.getenv("PDF_DPI", "200") if pdf_dpi is None else pdf_dpi)
         self.include_cell_text = include_cell_text
-        self.det = PaddleOCR(use_angle_cls=False, use_gpu=use_gpu, lang="it", show_log=False)
+        # PaddleOCR changed the constructor signature in 3.x removing the
+        # ``show_log`` argument. Construct the kwargs dynamically to stay
+        # compatible with both old and new versions.
+        kwargs = {"lang": "it"}
+        try:  # pragma: no cover - defensive
+            import inspect
+            sig = inspect.signature(PaddleOCR.__init__)
+            if "use_angle_cls" in sig.parameters:
+                kwargs["use_angle_cls"] = False
+            if "use_gpu" in sig.parameters:
+                kwargs["use_gpu"] = use_gpu
+            elif "device" in sig.parameters:
+                kwargs["device"] = "gpu" if use_gpu else "cpu"
+            if "show_log" in sig.parameters:
+                kwargs["show_log"] = False
+        except Exception:  # pragma: no cover - if inspect fails we just skip
+            kwargs.update(use_angle_cls=False, use_gpu=use_gpu)
+        self.det = PaddleOCR(**kwargs)
         if PPStructureV3 is None:
             raise RuntimeError("PPStructureV3 unavailable: please install paddleocr>=2.7.0")
         self.pp = PPStructureV3(layout_detection_model_name="PicoDet_layout_1x_table", layout_detection_model_dir=None)
