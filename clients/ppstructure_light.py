@@ -67,8 +67,36 @@ class PPStructureLight:
         for pidx, img in pages:
             np_img = np.array(img)
             log.info("Running text detector on page %s", pidx)
-            det_res = self.det.ocr(np_img, det=True, rec=True, cls=False)
-            lines = det_res[0] if (isinstance(det_res, list) and len(det_res) > 0) else []
+            det_res = self.det.ocr(np_img)
+            lines = []
+            if isinstance(det_res, list):
+                if det_res and isinstance(det_res[0], list):
+                    lines = det_res[0]
+                elif det_res and isinstance(det_res[0], dict):
+                    for obj in det_res:
+                        poly = obj.get("poly") or obj.get("bbox") or obj.get("points")
+                        text = obj.get("text") or obj.get("label") or ""
+                        score = obj.get("score", 0.0)
+                        if poly is not None:
+                            lines.append([poly, [text, score]])
+            elif isinstance(det_res, dict):
+                cand = None
+                for k in ("res", "result", "data"):
+                    v = det_res.get(k)
+                    if isinstance(v, list):
+                        cand = v
+                        break
+                if cand:
+                    for obj in cand:
+                        if isinstance(obj, (list, tuple)):
+                            lines.append(obj)
+                        elif isinstance(obj, dict):
+                            poly = obj.get("poly") or obj.get("bbox") or obj.get("points")
+                            text = obj.get("text") or obj.get("label") or ""
+                            score = obj.get("score", 0.0)
+                            if poly is not None:
+                                lines.append([poly, [text, score]])
+            log.info("Detected %d text lines on page %s", len(lines), pidx)
             for item in lines:
                 poly = item[0] if isinstance(item, (list, tuple)) and len(item) > 0 else None
                 if poly is None:
