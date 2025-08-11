@@ -5,7 +5,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    DEBIAN_FRONTEND=noninteractive
+    DEBIAN_FRONTEND=noninteractive \
+    # Aggiungi indice CPU PyTorch
+    PIP_EXTRA_INDEX_URL=https://download.pytorch.org/whl/cpu
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
@@ -18,19 +20,21 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 COPY requirements.txt /app/requirements.txt
-RUN python -m pip install --upgrade pip && pip install -r requirements.txt
-# extra deps for local LLM/emb
-RUN pip install "uvicorn[standard]" "gunicorn" "llama-cpp-python>=0.2.85"
+RUN python -m pip install --upgrade pip \
+ && pip install -r requirements.txt
+
+# extra deps per LLM/emb – usa wheel precompilata
+RUN pip install "uvicorn[standard]" "gunicorn" "llama-cpp-python==0.2.85"
 
 COPY . /app
 
-ARG LLM_GGUF_URL=
-ARG EMB_GGUF_URL=
-ARG LLM_GGUF_SHA256=
-ARG EMB_GGUF_SHA256=
+ARG LLM_GGUF_URL= \
+    EMB_GGUF_URL= \
+    LLM_GGUF_SHA256= \
+    EMB_GGUF_SHA256=
 
 ENV MODELS_DIR=/models \
-    LLM_GGUF_PATH=/models/llm.gguf \
+    LLM_GGUF_PATH=/models/qwen2.5-1.5b-instruct-q5_k_m.gguf \
     EMBEDDINGS_GGUF_PATH=/models/embeddings.gguf \
     EMBED_OVERLAYS=1
 
