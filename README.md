@@ -401,6 +401,7 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ### 8.4 Run with mocks (offline)
 
 ```bash
+export DOCFLOW_DATA_DIR="./data"
 export MOCK_LLM=1
 export MOCK_PP=1
 uvicorn main:app --reload

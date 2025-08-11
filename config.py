@@ -47,7 +47,7 @@ LOG_LEVEL = get_env_str("LOG_LEVEL", "INFO")  # DEBUG|INFO|WARNING|ERROR
 DOCS_ENABLED = get_env_int("DOCS_ENABLED", 1)  # 1=enable interactive docs
 
 # Reports
-REPORTS_DIR = get_env_str("REPORTS_DIR", "/mnt/data/reports")
+REPORTS_DIR = get_env_str("REPORTS_DIR", "./data/reports")
 REPORT_TTL_HOURS = get_env_int("REPORT_TTL_HOURS", 72)
 
 def renormalize_weights(w_bm25: float, w_vec: float, w_anchor: float) -> Tuple[float,float,float]:
@@ -79,4 +79,4 @@ ALLOW_PP_ON_DIGITAL  = get_env_int("ALLOW_PP_ON_DIGITAL", 1)  # 1=allow PP(table
 BACKENDS_MOCK = get_env_int("BACKENDS_MOCK", 1)  # 1=use mock responses for external services (MarkItDown, PP, LLM)
 HTTP_TIMEOUT_MS = get_env_int("HTTP_TIMEOUT_MS", 60000)
 
-DEBUG_DIR = get_env_str("DEBUG_DIR", "/mnt/data/debug")
+DEBUG_DIR = get_env_str("DEBUG_DIR", "./data/debug")
