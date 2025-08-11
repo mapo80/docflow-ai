@@ -1,14 +1,23 @@
 # clients/ppstructure_light.py
 from __future__ import annotations
 import os
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any, Tuple, Optional
 import numpy as np
 from pdf2image import convert_from_path
-from paddleocr import PaddleOCR
-try:
-    from paddleocr import PPStructureV3
-except Exception:
+import asyncio, tempfile
+from logger import get_logger
+
+try:  # pragma: no cover - optional heavy dependency
+    from paddleocr import PaddleOCR  # type: ignore
+    try:
+        from paddleocr import PPStructureV3  # type: ignore
+    except Exception:  # pragma: no cover - some installs lack PPStructureV3
+        PPStructureV3 = None  # type: ignore
+except Exception:  # pragma: no cover - paddleocr not installed
+    PaddleOCR = None  # type: ignore
     PPStructureV3 = None  # type: ignore
+
+log = get_logger(__name__)
 
 def _poly_to_xywh(poly) -> List[float]:
     arr = np.asarray(poly, dtype=float)
@@ -24,6 +33,8 @@ class PPStructureLight:
         # PaddleOCR changed the constructor signature in 3.x removing the
         # ``show_log`` argument. Construct the kwargs dynamically to stay
         # compatible with both old and new versions.
+        if PaddleOCR is None:
+            raise RuntimeError("PaddleOCR is not installed")
         kwargs = {"lang": "it"}
         try:  # pragma: no cover - defensive
             import inspect
@@ -48,18 +59,20 @@ class PPStructureLight:
         tokens: List[Dict[str, Any]] = []
         for pidx, img in pages:
             np_img = np.array(img)
-            # TEXT (det only)
-            det_res = self.det.ocr(np_img, det=True, rec=False, cls=False)
+            log.info("Running text detector on page %s", pidx)
+            det_res = self.det.ocr(np_img, det=True, rec=True, cls=False)
             lines = det_res[0] if (isinstance(det_res, list) and len(det_res) > 0) else []
             for item in lines:
                 poly = item[0] if isinstance(item, (list, tuple)) and len(item) > 0 else None
                 if poly is None:
                     continue
-                tokens.append({"category":"text", "bbox": _poly_to_xywh(poly), "page_index": pidx})
-            # TABLE + CELLS
+                txt = ""
+                if len(item) > 1 and isinstance(item[1], (list, tuple)):
+                    txt = str(item[1][0])
+                tokens.append({"category":"text", "bbox": _poly_to_xywh(poly), "page_index": pidx, "text": txt})
             tables, cell_tokens = self._table_regions_and_cells(np_img, pidx)
             for bb in tables:
-                tokens.append({"category":"table", "bbox": bb, "page_index": pidx})
+                tokens.append({"category": "table", "bbox": bb, "page_index": pidx})
             tokens.extend(cell_tokens)
         return tokens
 
@@ -142,3 +155,56 @@ class PPStructureLight:
                     cell_tokens.append(tok)
 
         return tables_xywh, cell_tokens
+
+
+_PP_INSTANCE: PPStructureLight | None = None
+
+def _get_pp() -> PPStructureLight:
+    global _PP_INSTANCE
+    if _PP_INSTANCE is None:
+        log.info("Creating PPStructureLight instance")
+        _PP_INSTANCE = PPStructureLight()
+    return _PP_INSTANCE
+
+def _analyze_sync(data: bytes, filename: str, pages: Optional[list] = None) -> List[Dict[str, Any]]:
+    pp = _get_pp()
+    suffix = os.path.splitext(filename)[1] or ".bin"
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+        tmp.write(data)
+        tmp_path = tmp.name
+    try:
+        log.info("Loading pages for PPStructureLight")
+        pages_imgs = pp._load_pages(tmp_path)
+        tokens = pp.extract_tokens(tmp_path)
+        pages_blocks: List[Dict[str, Any]] = []
+        for pidx, img in pages_imgs:
+            blocks = []
+            for t in tokens:
+                if t.get("page_index") != pidx:
+                    continue
+                cat = t.get("category", "text")
+                blk: Dict[str, Any] = {"type": cat if cat != "cell" else "text", "bbox": t.get("bbox", [])}
+                if t.get("text"):
+                    blk["text"] = t["text"]
+                if cat == "table":
+                    blk["markdown"] = t.get("markdown", "")
+                blocks.append(blk)
+            pages_blocks.append({
+                "page": pidx + 1,
+                "page_w": float(img.width),
+                "page_h": float(img.height),
+                "blocks": blocks,
+            })
+        return pages_blocks
+    finally:
+        try:
+            os.unlink(tmp_path)
+        except Exception:
+            pass
+
+async def analyze_async(data: bytes, filename: str, pages: Optional[list] = None) -> List[Dict[str, Any]]:
+    log.info("Calling PPStructureLight analyze_async")
+    loop = asyncio.get_event_loop()
+    res = await loop.run_in_executor(None, _analyze_sync, data, filename, pages)
+    log.info("PPStructureLight analyze_async completed")
+    return res

@@ -3,6 +3,7 @@ from __future__ import annotations
 import os, json, re
 from typing import Dict, Any, List
 from llama_cpp import Llama
+from logger import get_logger
 
 LLM_GGUF_PATH   = os.getenv("LLM_GGUF_PATH", "/models/llm.gguf")
 LLAMA_N_CTX     = int(os.getenv("LLM_N_CTX", "4096"))
@@ -14,10 +15,12 @@ LLM_SEED        = int(os.getenv("LLM_SEED", "42"))
 
 _GLOBAL_LLM: Llama | None = None
 _JSON_FENCE = re.compile(r"\{.*\}", re.DOTALL)
+log = get_logger(__name__)
 
 def get_local_llm() -> Llama:
     global _GLOBAL_LLM
     if _GLOBAL_LLM is None:
+        log.info("Initializing local LLM")
         _GLOBAL_LLM = Llama(
             model_path=LLM_GGUF_PATH,
             n_ctx=LLAMA_N_CTX,
@@ -50,6 +53,7 @@ JSON SCHEMA EXAMPLE:
 """
 
 def chat_json(fields: List[str], llm_text: str, context: str) -> Dict[str, Dict[str, Any]]:
+    log.info("Calling local LLM for fields %s", fields)
     llm = get_local_llm()
     prompt = _build_prompt(fields, llm_text, context).strip()
     out = llm.create_completion(

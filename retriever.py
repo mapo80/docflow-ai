@@ -3,13 +3,17 @@ from __future__ import annotations
 from typing import List, Tuple, Dict, Any
 import numpy as np
 from clients.embeddings_local import embed_texts
+from logger import get_logger
 
 class EphemeralIndex:
     def __init__(self, chunks: List[Dict[str, Any]], anchors: List[str] | None = None):
         self.chunks = chunks
+        self.log = get_logger(__name__)
+        self.log.info("Building ephemeral index for %d chunks", len(chunks))
         self.vecs = embed_texts([c["text"] for c in chunks])
 
     def search(self, query: str, topk: int = 5) -> List[Tuple[int, float]]:
+        self.log.info("Searching index with query: %s", query)
         qv = embed_texts([query])[0]
         sims = []
         for i, v in enumerate(self.vecs):

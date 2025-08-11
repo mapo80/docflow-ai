@@ -5,6 +5,9 @@ import fitz, io, mimetypes, os, asyncio, re
 from config import MARKITDOWN_BASE_URL, PPSTRUCT_POLICY, TEXT_LAYER_MIN_CHARS, ALLOW_PP_ON_DIGITAL
 from clients.markitdown_client import convert_bytes_to_markdown_async
 import clients.ppstructure_light as ppc
+from logger import get_logger
+
+log = get_logger(__name__)
 
 def _guess_mime(filename: str, header: bytes) -> str:
     m = mimetypes.guess_type(filename)[0]
@@ -16,6 +19,7 @@ def _guess_mime(filename: str, header: bytes) -> str:
 
 async def convert_markdown_async(data: bytes, filename: str = "input.bin") -> str:
     """Async version: PDF -> PyMuPDF text, else call MarkItDown async; fallback to naive decode."""
+    log.info("Entering convert_markdown_async for %s", filename)
     import fitz
     mime = _guess_mime(filename, data[:8])
     if mime == 'application/pdf':
@@ -28,6 +32,7 @@ async def convert_markdown_async(data: bytes, filename: str = "input.bin") -> st
         except Exception:
             pass
     try:
+        log.info("Calling MarkItDown for %s", filename)
         return await convert_bytes_to_markdown_async(data, filename, mime)
     except Exception:
         try:
@@ -63,9 +68,11 @@ def convert_markdown(data: bytes, filename: str = "input.bin") -> str:
             return "(binary)"
 
 def extract_words_with_bboxes_pdf(data: bytes) -> list:
+    log.info("Extracting words and bboxes from PDF")
     try:
         doc = fitz.open(stream=data, filetype="pdf")
     except Exception:
+        log.info("Failed to open PDF for text extraction")
         return []
     pages = []
     for pno, page in enumerate(doc, start=1):
@@ -75,19 +82,23 @@ def extract_words_with_bboxes_pdf(data: bytes) -> list:
             x0,y0,x1,y1, word, block_no, line_no, word_no = w
             wlist.append({"text": word, "bbox":[x0,y0,x1,y1]})
         pages.append({"page": pno, "page_w": page.rect.width, "page_h": page.rect.height, "words": wlist})
+    log.info("Extracted %d pages of words", len(pages))
     return pages
 
 async def parse_with_ppstructure_async(data: bytes, filename: str, pages: Optional[list]=None):
     """Async call to PP-Structure service."""
+    log.info("Invoking PP-Structure analyze_async for %s", filename)
     return await ppc.analyze_async(data, filename, pages=pages)
 
 def parse_with_ppstructure(data: bytes, filename: str, pages: Optional[list]=None):
 
     """Call PP-Structure service (async) and return page blocks; empty on failure."""
+    log.info("parse_with_ppstructure sync wrapper invoking analyze_async")
     return asyncio.get_event_loop().run_until_complete(ppc.analyze_async(data, filename, pages=pages))
 
 def build_markdown_from_pp(pages_blocks: list) -> str:
     """Construct simple Markdown from PP-Structure blocks (lines/tables)."""
+    log.info("Building markdown from PP-Structure output")
     out = []
     for pg in pages_blocks:
         for b in pg.get("blocks", []):

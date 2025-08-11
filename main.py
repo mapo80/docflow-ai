@@ -75,6 +75,7 @@ async def _process_request(
     req_id: str,
     emit: Callable[[str], None] | None = None,
 ) -> dict:  # noqa: C901
+    log.info("Starting _process_request for %s", filename)
     try:
         schema = Template(**tpl_json)
     except (ValidationError, TypeError) as e:
@@ -94,11 +95,14 @@ async def _process_request(
     if emit:
         emit("markdown_start")
     t_markdown0 = time.time()
+    log.info("Converting document to markdown")
     markdown = await convert_markdown_async(data, filename)
     t_markdown = time.time() - t_markdown0
+    log.info("Markdown conversion completed in %.3fs", t_markdown)
 
     mime = mimetypes.guess_type(filename)[0] or "application/octet-stream"
     is_pdf = (mime == "application/pdf") or (data[:4] == b"%PDF")
+    log.info("Extracting words with bboxes from PDF: %s", is_pdf)
     pages_words = extract_words_with_bboxes_pdf(data) if is_pdf else []
 
     total_chars = 0
@@ -141,9 +145,11 @@ async def _process_request(
     if (pp_should_run_global or need_pp_for_content) and PPSTRUCT_POLICY != "auto_pages":
         if emit:
             emit("pp_start")
+        log.info("Calling PP-Structure analysis")
         t_pp0 = time.time()
         pages_blocks = await parse_with_ppstructure_async(data, filename, pages=None)
         t_pp = time.time() - t_pp0
+        log.info("PP-Structure returned %d pages in %.3fs", len(pages_blocks), t_pp)
         jlog(
             "ppstructure_done",
             id=req_id,
@@ -154,6 +160,7 @@ async def _process_request(
     if not is_digital_text and pages_blocks:
         markdown = build_markdown_from_pp(pages_blocks)
 
+    log.info("Splitting markdown into chunks")
     chunks = indexer.split_markdown_into_chunks(markdown)
     md_tokens_est = indexer.approximate_tokens(markdown)
     overhead = int(os.getenv("RAG_CTX_MARGIN_TOKENS", "256")) + 256
@@ -164,6 +171,8 @@ async def _process_request(
     manifest["llm_context_mode"] = "single_pass" if use_single_pass else "rag_field_wise"
     manifest["md_token_estimate"] = md_tokens_est
     manifest["c_eff"] = c_eff
+
+    log.info("LLM context mode: %s", manifest["llm_context_mode"])
 
     artifacts_dir = os.path.join(os.getenv("REPORTS_DIR", "reports"), req_id)
     os.makedirs(artifacts_dir, exist_ok=True)
@@ -185,8 +194,10 @@ async def _process_request(
     results: List[Dict[str, Any]] = []
     if use_single_pass:
         t_llm0 = time.time()
+        log.info("Calling LLM for all fields in single pass")
         fields_out = await extract_fields_async([f for f in schema.fields], schema.llm_text, markdown)
         t_llm = int((time.time() - t_llm0) * 1000)
+        log.info("LLM single pass completed in %d ms", t_llm)
         jlog("llm_single_pass_done", id=req_id, ms=t_llm)
 
         global_chunk_tokens = tokens
@@ -211,14 +222,18 @@ async def _process_request(
     else:
         # field-wise RAG
         anchors = [str(f).lower() for f in schema.fields]
+        log.info("Creating RAG index")
         idx = retriever.EphemeralIndex(chunks, anchors=anchors)
         global_chunk_tokens = tokens
         for key in schema.fields:
+            log.info("Searching index for field %s", key)
             hits = idx.search(key, topk=int(os.getenv("RAG_TOPK", "6")))
             ctx = "\n\n".join(chunks[h[0]]["text"] for h in hits)
             t_llm0 = time.time()
+            log.info("Calling LLM for field %s", key)
             fields_out = await extract_fields_async([key], schema.llm_text, ctx)
             t_llm = int((time.time() - t_llm0) * 1000)
+            log.info("LLM returned for field %s in %d ms", key, t_llm)
             item = fields_out.get(key, {}) or {}
             val = (item.get("value") or "")
             llm_conf = float(item.get("confidence") or 0.0)
@@ -292,6 +307,7 @@ async def _process_request(
         json.dump(response, f, ensure_ascii=False, indent=2)
 
     reports.save_report_bundle(req_id, manifest, {}, {"response.json": os.path.join(rdir, "response.json")})
+    log.info("Completed _process_request for %s", filename)
     return response
 
 # ---------------- Routes ----------------
