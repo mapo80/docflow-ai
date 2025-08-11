@@ -20,7 +20,7 @@ pdf2image>=1.16.3
 
 # Aggiungi esplicitamente torch CPU (niente CUDA):
 # Queste vanno in fondo al file o installate a parte con extra-index-url
-torch==2.6.0 # +cpu
+torch==2.6.0+cpu
 
 # Questi SENZA +cpu (CPU è default)
 torchvision==0.21.0
