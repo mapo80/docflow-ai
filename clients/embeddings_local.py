@@ -4,12 +4,16 @@ import os
 from typing import List
 import numpy as np
 from llama_cpp import Llama
+from huggingface_hub import hf_hub_download
 from logger import get_logger
 
 EMB_PATH = os.getenv("EMBEDDINGS_GGUF_PATH", "/models/embeddings.gguf")
 EMB_THREADS = int(os.getenv("EMB_THREADS", str(os.cpu_count() or 4)))
 EMB_N_CTX = int(os.getenv("EMB_N_CTX", "512"))
 EMB_GPU_LAYERS = int(os.getenv("EMB_GPU_LAYERS", "0"))
+HF_REPO = os.getenv("EMB_HF_REPO", "Mungert/Qwen3-Embedding-0.6B-GGUF")
+HF_FILE = os.getenv("EMB_HF_FILE", "Qwen3-Embedding-0.6B-q4_k_m.gguf")
+HF_TOKEN = os.getenv("HUGGINGFACE_TOKEN")
 
 _EMB: Llama | None = None
 log = get_logger(__name__)
@@ -18,12 +22,26 @@ log = get_logger(__name__)
 def get_local_embedder() -> Llama:
     global _EMB
     if _EMB is None:
-        if not os.path.exists(EMB_PATH):
-            raise RuntimeError(f"Embeddings model not found at {EMB_PATH}")
-        log.info("Initializing local embedder from %s", EMB_PATH)
+        model_path = EMB_PATH
+        if not os.path.exists(model_path):
+            log.info(
+                "Embeddings model missing at %s, downloading from HuggingFace repo %s",
+                model_path,
+                HF_REPO,
+            )
+            try:
+                model_path = hf_hub_download(
+                    repo_id=HF_REPO,
+                    filename=HF_FILE,
+                    token=HF_TOKEN,
+                )
+            except Exception as e:  # pragma: no cover - network issues
+                raise RuntimeError(f"Failed to download embeddings model: {e}") from e
+            log.info("Downloaded embeddings model to %s", model_path)
+        log.info("Initializing local embedder from %s", model_path)
         try:
             _EMB = Llama(
-                model_path=EMB_PATH,
+                model_path=model_path,
                 embedding=True,
                 n_threads=EMB_THREADS,
                 n_ctx=EMB_N_CTX,

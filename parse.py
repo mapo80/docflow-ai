@@ -4,7 +4,7 @@ import fitz, io, mimetypes, os, asyncio, re
 
 from config import MARKITDOWN_BASE_URL, PPSTRUCT_POLICY, TEXT_LAYER_MIN_CHARS, ALLOW_PP_ON_DIGITAL
 from clients.markitdown_client import convert_bytes_to_markdown_async
-import clients.ppstructure_client as ppc
+from clients.ppstructure_client import analyze_async as pp_analyze_async
 from logger import get_logger
 
 log = get_logger(__name__)
@@ -89,7 +89,7 @@ async def parse_with_ppstructure_async(data: bytes, filename: str, pages: Option
     """Async call to PP-Structure service."""
     log.info("Invoking PP-Structure analyze_async for %s", filename)
     try:
-        return await ppc.analyze_async(data, filename, pages=pages)
+        return await pp_analyze_async(data, filename, pages=pages)
     except Exception as e:
         log.warning("PP-Structure analyze_async failed: %s", e)
         return []
@@ -98,7 +98,7 @@ def parse_with_ppstructure(data: bytes, filename: str, pages: Optional[list]=Non
 
     """Call PP-Structure service (async) and return page blocks; empty on failure."""
     log.info("parse_with_ppstructure sync wrapper invoking analyze_async")
-    return asyncio.get_event_loop().run_until_complete(ppc.analyze_async(data, filename, pages=pages))
+    return asyncio.get_event_loop().run_until_complete(pp_analyze_async(data, filename, pages=pages))
 
 def build_markdown_from_pp(pages_blocks: list) -> str:
     """Construct simple Markdown from PP-Structure blocks (lines/tables)."""

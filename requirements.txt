@@ -25,3 +25,4 @@ torch==2.6.0 # +cpu
 # Questi SENZA +cpu (CPU è default)
 torchvision==0.21.0
 torchaudio==2.6.0
+huggingface-hub==0.24.0
