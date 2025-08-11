@@ -70,20 +70,36 @@ class PPStructureLight:
             np_img = np.array(img)
             log.info("Running text detector on page %s", pidx)
             det_res = self.det.ocr(np_img)
-            lines = []
+            log.info(
+                "OCR raw result type=%s", type(det_res).__name__
+            )
+            lines: List[Any] = []
             if isinstance(det_res, list):
-                if det_res and isinstance(det_res[0], list):
-                    lines = det_res[0]
-                elif det_res and isinstance(det_res[0], dict):
-                    for obj in det_res:
-                        poly = obj.get("poly") or obj.get("bbox") or obj.get("points")
-                        text = obj.get("text") or obj.get("label") or ""
+                cand = det_res
+                if len(det_res) == 1 and isinstance(det_res[0], list):
+                    cand = det_res[0]
+                for obj in cand:
+                    if isinstance(obj, (list, tuple)) and obj:
+                        lines.append(obj)
+                    elif isinstance(obj, dict):
+                        poly = (
+                            obj.get("poly")
+                            or obj.get("bbox")
+                            or obj.get("points")
+                            or obj.get("text_box_position")
+                        )
+                        text = (
+                            obj.get("text")
+                            or obj.get("label")
+                            or obj.get("transcription")
+                            or ""
+                        )
                         score = obj.get("score", 0.0)
                         if poly is not None:
                             lines.append([poly, [text, score]])
             elif isinstance(det_res, dict):
                 cand = None
-                for k in ("res", "result", "data"):
+                for k in ("res", "result", "data", "boxes"):
                     v = det_res.get(k)
                     if isinstance(v, list):
                         cand = v
@@ -93,8 +109,18 @@ class PPStructureLight:
                         if isinstance(obj, (list, tuple)):
                             lines.append(obj)
                         elif isinstance(obj, dict):
-                            poly = obj.get("poly") or obj.get("bbox") or obj.get("points")
-                            text = obj.get("text") or obj.get("label") or ""
+                            poly = (
+                                obj.get("poly")
+                                or obj.get("bbox")
+                                or obj.get("points")
+                                or obj.get("text_box_position")
+                            )
+                            text = (
+                                obj.get("text")
+                                or obj.get("label")
+                                or obj.get("transcription")
+                                or ""
+                            )
                             score = obj.get("score", 0.0)
                             if poly is not None:
                                 lines.append([poly, [text, score]])
