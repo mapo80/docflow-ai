@@ -88,7 +88,11 @@ def extract_words_with_bboxes_pdf(data: bytes) -> list:
 async def parse_with_ppstructure_async(data: bytes, filename: str, pages: Optional[list]=None):
     """Async call to PP-Structure service."""
     log.info("Invoking PP-Structure analyze_async for %s", filename)
-    return await ppc.analyze_async(data, filename, pages=pages)
+    try:
+        return await ppc.analyze_async(data, filename, pages=pages)
+    except Exception as e:
+        log.warning("PP-Structure analyze_async failed: %s", e)
+        return []
 
 def parse_with_ppstructure(data: bytes, filename: str, pages: Optional[list]=None):
 

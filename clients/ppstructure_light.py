@@ -49,7 +49,14 @@ class PPStructureLight:
                 kwargs["show_log"] = False
         except Exception:  # pragma: no cover - if inspect fails we just skip
             kwargs.update(use_angle_cls=False, use_gpu=use_gpu)
-        self.det = PaddleOCR(**kwargs)
+        try:
+            self.det = PaddleOCR(**kwargs)
+        except ModuleNotFoundError as e:  # pragma: no cover - missing paddle
+            if "paddle" in str(e).lower():
+                raise RuntimeError(
+                    "paddlepaddle is required for PaddleOCR; install paddlepaddle or set BACKENDS_MOCK=1"
+                ) from e
+            raise
         if PPStructureV3 is None:
             raise RuntimeError("PPStructureV3 unavailable: please install paddleocr>=2.7.0")
         self.pp = PPStructureV3(layout_detection_model_name="PicoDet_layout_1x_table", layout_detection_model_dir=None)
