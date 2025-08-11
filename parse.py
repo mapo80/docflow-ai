@@ -4,7 +4,7 @@ import fitz, io, mimetypes, os, asyncio, re
 
 from config import MARKITDOWN_BASE_URL, PPSTRUCT_POLICY, TEXT_LAYER_MIN_CHARS, ALLOW_PP_ON_DIGITAL
 from clients.markitdown_client import convert_bytes_to_markdown_async
-import clients.ppstructure_light as ppc
+import clients.ppstructure_client as ppc
 from logger import get_logger
 
 log = get_logger(__name__)
