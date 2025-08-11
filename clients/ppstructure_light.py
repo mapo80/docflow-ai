@@ -19,6 +19,8 @@ except Exception:  # pragma: no cover - paddleocr not installed
 
 log = get_logger(__name__)
 
+__all__ = ["PPStructureLight", "analyze_async"]
+
 def _poly_to_xywh(poly) -> List[float]:
     arr = np.asarray(poly, dtype=float)
     xs, ys = arr[:,0], arr[:,1]
