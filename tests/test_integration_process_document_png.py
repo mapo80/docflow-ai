@@ -1,4 +1,5 @@
 import os
+import os
 import time
 import httpx
 import subprocess
@@ -40,7 +41,7 @@ def test_process_document_png_integration(tmp_path):
         wait_for_server(f"http://127.0.0.1:{port}/")
         with SAMPLE_IMG.open("rb") as f:
             files = {"file": ("sample_invoice.png", f, "image/png")}
-            data = {"pp_policy": "auto", "overlays": "true"}
+            data = {"ocr_policy": "auto", "overlays": "true"}
             headers = {"x-api-key": env.get("API_KEY", "")}
             r = httpx.post(
                 f"http://127.0.0.1:{port}/process-document",

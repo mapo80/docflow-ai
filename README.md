@@ -16,7 +16,7 @@ This README consolidates what is implemented in the repository and expands it wi
 
 ## 0) TL;DR
 
-- **POST `/process-document`** accepts a **PDF or image**, applies **OCR/ppstructure** under a **policy**, converts content to markdown via **MarkItDown**, then asks an **LLM** to extract a **JSON of fields with confidence**.  
+- **POST `/process-document`** accepts a **PDF or image**, applies **DocTR OCR** under a **policy**, converts content to markdown via **MarkItDown**, then asks an **LLM** to extract a **JSON of fields with confidence**.
 - **Overlays** can be produced to show bounding boxes for recognized fields.  
 - **Mocks** allow **offline** development without external services.  
 - **Tests** target **unit and integration** behavior, with coverage reporting.
@@ -44,7 +44,7 @@ Client ──► FastAPI App (ASGI)
         Pipeline Controller
             │
     ┌───────┴─────────────┐
-    │ Parse/OCR (ppstruct) │
+    │ Parse/OCR (DocTR) │
     │ Markdown (MarkItDown)│
     │ LLM Enrichment       │
     └───────┬─────────────┘
@@ -64,17 +64,17 @@ Client ──► FastAPI App (ASGI)
   [1] Detect media type: PDF (digital/scanned) or Image
           |
           v
-  [2] Apply PP_POLICY: always | never | auto
+  [2] Apply OCR_POLICY: always | never | auto
           |      |         |
-          |      |         +--> auto: heuristics decide OCR/ppstructure
-          |      +------------> never: skip ppstructure entirely
-          +-------------------> always: force ppstructure
+          |      |         +--> auto: heuristics decide OCR
+          |      +------------> never: skip OCR entirely
+          +-------------------> always: force OCR
           |
           v
   [3] Preprocess (split pages, rasterize PDF if needed)
           |
           v
-  [4] Parsers: OCR tokens, tables, layout via ppstructure
+  [4] Parsers: OCR tokens via DocTR (tables unsupported)
           |
           v
   [5] Convert to Markdown using MarkItDown
@@ -104,14 +104,14 @@ main.py (FastAPI app)
  ├─ align.py (page/image alignment utilities)
  ├─ jobs.py (batch/async job orchestration hooks)
  └─ clients/
-     ├─ ppstructure_client.py (OCR/layout client, mockable)
+    ├─ doctr_client.py (OCR client, mockable)
      ├─ markitdown_client.py (markdown conversion client)
      └─ llm.py (thin client wrapper or shared LLM helpers)
 ```
 
 > Notes:
 > - The `tests/` directory contains unit/integration tests that validate end-to-end flow, overlays, multi-page handling, policies, and error/reporting behaviors.
-> - The LLM and OCR/ppstructure layers are **mockable** to support offline, deterministic test runs.
+> - The LLM and OCR layers are **mockable** to support offline, deterministic test runs.
 
 ---
 
@@ -126,7 +126,7 @@ Process a single document (PDF or image) and return structured fields and (optio
 | Name            | Type  | Required | Default | Description                                                                 |
 |-----------------|-------|----------|---------|-----------------------------------------------------------------------------|
 | `file`          | File  | Yes      | —       | PDF or image (`.pdf`, `.png`, `.jpg` by default).                           |
-| `pp_policy`     | str   | No       | `auto`  | One of: `always`, `never`, `auto`. Controls ppstructure usage.             |
+| `ocr_policy`     | str   | No       | `auto`  | One of: `always`, `never`, `auto`. Controls OCR usage.             |
 | `llm_model`     | str   | No       | —       | Logical model ID/name resolved by the LLM client.                           |
 | `overlays`      | bool  | No       | `false` | If `true`, include `overlays[]` with bounding boxes for recognized fields. |
 
@@ -135,7 +135,7 @@ Process a single document (PDF or image) and return structured fields and (optio
 ```bash
 curl -X POST "http://localhost:8000/process-document" \
   -F "file=@invoice.pdf" \
-  -F "pp_policy=auto" \
+  -F "ocr_policy=auto" \
   -F "overlays=true"
 ```
 
@@ -173,8 +173,8 @@ curl -X POST "http://localhost:8000/process-document" \
 | Variable              | Type  | Default                  | Allowed values / Format                    | Effect |
 |-----------------------|-------|--------------------------|-------------------------------------------|--------|
 | `MOCK_LLM`            | int   | `0`                      | `0` or `1`                                | If `1`, the LLM layer returns **mocked** JSON for deterministic tests and offline runs. |
-| `MOCK_PP`             | int   | `0`                      | `0` or `1`                                | If `1`, the ppstructure/OCR layer returns **mocked** tokens/bboxes (no external deps). |
-| `PP_POLICY`           | str   | `auto`                   | `always`, `never`, `auto`                 | Governs whether to call ppstructure or skip it. `auto` uses heuristics/type detection. |
+| `MOCK_OCR`            | int   | `0`                      | `0` or `1`                                | If `1`, the OCR layer returns **mocked** tokens/bboxes (no external deps). |
+| `OCR_POLICY`          | str   | `auto`                   | `always`, `never`, `auto`                 | Governs whether to call OCR or skip it. `auto` uses heuristics/type detection. |
 | `MAX_TOKENS`          | int   | `1024`                   | Positive integer                           | Upper bound for tokens produced/consumed by LLM calls. Used to avoid runaway responses. |
 | `ALLOWED_EXTENSIONS`  | str   | `.pdf,.png,.jpg`         | Comma-separated list                       | Restricts uploadable file types at request validation. |
 | `LOG_LEVEL`           | str   | `INFO`                   | `DEBUG`, `INFO`, `WARNING`, `ERROR`        | (If supported by `logger.py`): controls logging verbosity. |
@@ -185,16 +185,16 @@ curl -X POST "http://localhost:8000/process-document" \
 | `KEEP_INTERMEDIATES`  | int   | `0`                      | `0` or `1`                                | (If used): Keep preprocessed page images to aid debugging. |
 | `LLM_MODEL`           | str   | implementation-dependent | logical model name/id                      | Default model to use when `llm_model` not provided per request. |
 
-> **Source-of-truth:** `config.py` is expected to parse/validate these. The repo’s public README enumerates the first five (`MOCK_LLM`, `MOCK_PP`, `PP_POLICY`, `MAX_TOKENS`, `ALLOWED_EXTENSIONS`). The remaining knobs are standard operational settings commonly wired via `config.py`/`logger.py`; enable them as needed and keep this table updated.
+> **Source-of-truth:** `config.py` is expected to parse/validate these. The repo’s public README enumerates the first five (`MOCK_LLM`, `MOCK_OCR`, `OCR_POLICY`, `MAX_TOKENS`, `ALLOWED_EXTENSIONS`). The remaining knobs are standard operational settings commonly wired via `config.py`/`logger.py`; enable them as needed and keep this table updated.
 
-### 4.1 PP_POLICY Semantics
+### 4.1 OCR_POLICY Semantics
 
 ```
 +---------+---------------------------------------------------------------+
 | Policy  | Behavior                                                      |
 +---------+---------------------------------------------------------------+
-| always  | Force OCR/ppstructure even for digital-native PDFs.          |
-| never   | Skip OCR/ppstructure entirely; rely on digital text.         |
+| always  | Force OCR even for digital-native PDFs.          |
+| never   | Skip OCR entirely; rely on digital text.         |
 | auto    | Heuristics: classify input; OCR only if needed.              |
 +---------+---------------------------------------------------------------+
 ```
@@ -203,8 +203,8 @@ curl -X POST "http://localhost:8000/process-document" \
 
 ```
 MOCK_LLM=1
-MOCK_PP=1
-PP_POLICY=auto
+MOCK_OCR=1
+OCR_POLICY=auto
 MAX_TOKENS=1024
 ALLOWED_EXTENSIONS=.pdf,.png,.jpg
 LOG_LEVEL=DEBUG
@@ -221,7 +221,7 @@ docflow-ai/
 ├── clients/
 │   ├── llm.py
 │   ├── markitdown_client.py
-│   └── ppstructure_client.py
+│   └── doctr_client.py
 ├── tests/
 │   ├── test_overlays_and_bundle.py
 │   ├── test_overlays_multi_page.py
@@ -255,7 +255,7 @@ docflow-ai/
 
 - Defines the ASGI app, routes (notably `POST /process-document`), and dependency wiring.  
 - Validates incoming uploads (extension/MIME by `ALLOWED_EXTENSIONS`).  
-- Binds **ppstructure**, **MarkItDown**, and **LLM** services via **clients**.  
+- Binds **DocTR**, **MarkItDown**, and **LLM** services via **clients**.
 - Delegates orchestration to the **pipeline** implemented across `parse.py`, `overlay.py`, and helpers.
 
 **Operational hooks**  
@@ -277,7 +277,7 @@ docflow-ai/
 
 ### 6.4 `parse.py` — Policy, detection & parsing
 
-- Applies **PP_POLICY** to decide if/when to use ppstructure.  
+- Applies **OCR_POLICY** to decide if/when to use OCR.
 - Detects document type (image vs PDF; digital vs scanned where possible).  
 - Consolidates page text, layout tokens, and tables.  
 - Converts unified content to **Markdown** via MarkItDown client.  
@@ -296,11 +296,11 @@ docflow-ai/
 - **Mock mode** (`MOCK_LLM=1`) injects fixed JSON to stabilize tests.  
 - Model selection: either **per-request** (`llm_model`) or from **`LLM_MODEL`** env default.
 
-### 6.7 `clients/ppstructure_client.py` — OCR/layout
+### 6.7 `clients/doctr_client.py` — OCR
 
-- Provides `analyze_async(image_or_pdf_page)` → tokens/blocks/tables with coordinates.  
-- **Mock mode** (`MOCK_PP=1`) injects synthetic tokens/bboxes for deterministic runs.  
-- Only invoked when PP_POLICY is `always` or `auto` (and heuristics decide yes).
+- Provides `analyze_async(image_or_pdf_page)` → tokens/blocks with coordinates.
+- **Mock mode** (`MOCK_OCR=1`) injects synthetic tokens/bboxes for deterministic runs.
+- Only invoked when OCR_POLICY is `always` or `auto` (and heuristics decide yes).
 
 ### 6.8 `clients/markitdown_client.py` — Markdown conversion
 
@@ -352,7 +352,7 @@ docflow-ai/
   ],
   "meta": {
     "pages": 1,
-    "pp_policy": "auto",
+    "ocr_policy": "auto",
     "timings_ms": { "ocr": 0, "llm": 0, "total": 0 }
   }
 }
@@ -403,7 +403,7 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```bash
 export DOCFLOW_DATA_DIR="./data"
 export MOCK_LLM=1
-export MOCK_PP=1
+export MOCK_OCR=1
 uvicorn main:app --reload
 ```
 
@@ -429,7 +429,7 @@ pytest --cov=. --cov-report=term-missing --cov-report=html
 **Stabilizing tests**
 
 ```bash
-MOCK_LLM=1 MOCK_PP=1 pytest
+MOCK_LLM=1 MOCK_OCR=1 pytest
 ```
 
 ---
@@ -504,11 +504,11 @@ Upload -> |  FastAPI /process-doc  | -> Validate ext/MIME
                       |
                       v
               +-------+--------+
-              | Apply PP_POLICY|  (always/never/auto)
+              | Apply OCR_POLICY|  (always/never/auto)
               +-------+--------+
                       |
           +-----------+------------+
-          |  ppstructure (OCR+LT)  |  [skip if never]
+          |  DocTR OCR  |  [skip if never]
           +-----------+------------+
                       |
           +-----------+------------+
@@ -547,11 +547,11 @@ All dependencies are pinned in `requirements.txt`. Typical stacks include:
 
 ## 16) FAQ
 
-**Q: Do I need OCR for all PDFs?**  
-A: No. Use `PP_POLICY=auto` so digital PDFs skip ppstructure.
+**Q: Do I need OCR for all PDFs?**
+A: No. Use `OCR_POLICY=auto` so digital PDFs skip OCR.
 
-**Q: Can I run completely offline?**  
-A: Yes. Set `MOCK_LLM=1` and `MOCK_PP=1`. You’ll get deterministic results for tests and demos.
+**Q: Can I run completely offline?**
+A: Yes. Set `MOCK_LLM=1` and `MOCK_OCR=1`. You’ll get deterministic results for tests and demos.
 
 **Q: How do I add authentication?**  
 A: Use FastAPI dependencies or a proxy (e.g., API Key/Token via a header). Keep PII out of logs.
@@ -575,8 +575,8 @@ MIT License (see repository).
 
 ## 19) Change Log (high-level)
 
-- Initial release with FastAPI service, ppstructure integration, MarkItDown conversion, LLM JSON extraction, overlays, and tests with coverage.
-- Added mock switches (`MOCK_LLM`, `MOCK_PP`) and policy control (`PP_POLICY`).
+- Initial release with FastAPI service, DocTR integration, MarkItDown conversion, LLM JSON extraction, overlays, and tests with coverage.
+- Added mock switches (`MOCK_LLM`, `MOCK_OCR`) and policy control (`OCR_POLICY`).
 - Hardened tests and added coverage reports (HTML + terminal).
 
 ---
@@ -586,38 +586,50 @@ MIT License (see repository).
 - The FastAPI app serves interactive Swagger docs at `/docs` and the OpenAPI spec at `/openapi.json`.
 - Toggle these routes with the `DOCS_ENABLED` environment variable (`1` = enabled, `0` = disabled).
 
-# PPStructure Light + Cells (Integration)
+### Embedding senza FastAPI
 
-This bundle includes:
-- `clients/ppstructure_light.py`: mobile-only text detection + table regions + table **cells** (with text).
-- `services/bbox_mapper.py`: simple fuzzy matcher that assigns **cell boxes** to your `fields` by value.
-- `integrations/bbox_integration.py`: helper to run the pipeline and attach `locations[]` to your response.
+È possibile utilizzare il motore di embedding GGUF direttamente, senza avviare il server FastAPI:
 
-## Install
-
-```
-pip install paddleocr>=2.7.0 pdf2image>=1.16.3 Pillow>=10.0.0 numpy>=1.24.0
-# system: apt-get install -y poppler-utils
-```
-
-## Use in your endpoint
-
-```python
-from integrations.bbox_integration import attach_locations_to_response
-
-# After you have built the response dict:
-# response = {"fields": {"invoice_number": {"value":"INV-123", "confidence":0.9}, ...}, ...}
-
-response = attach_locations_to_response("/path/to/document.pdf", response)
-# Now fields may contain:
-# "locations": [ {"bbox":[x,y,w,h],"page_index":0}, ... ],
-# plus "bbox"/"page_index" aliases for the first location.
+```bash
+export HUGGINGFACE_TOKEN=<token>
+python - <<'PY'
+from clients.embeddings_local import embed_texts
+vec = embed_texts(['hello'])[0]
+print(len(vec), vec[:5])
+PY
 ```
 
-Notes:
-- Mapping uses **cell tokens** (with text) for better precision.
-- If your fields are not in tables, extend `bbox_mapper.py` to also use text-region OCR (enable recognition) or apply custom rules.
-- DPI defaults to 200; set env `PDF_DPI=150` for faster processing at lower resolution.
+Output d'esempio:
+
+```text
+nomic-embed-text-v1.5.Q4_K_M.gguf: 100% 84.1M/84.1M [00:03<00:00, 23.4MB/s]
+768 [0.049985986202955246, -0.07129103690385818, -4.728538990020752, -0.15377487242221832, 0.4639637768268585]
+```
+
+Il primo numero indica la dimensione del vettore (768) seguito dai primi valori dell'embedding.
+
+### PPStructure Light senza FastAPI
+
+Anche l'analizzatore OCR può essere eseguito direttamente:
+
+```bash
+python - <<'PY'
+import asyncio
+from clients.doctr_client import analyze_async
+with open("dataset/sample_invoice.png","rb") as f:
+    data = f.read()
+pages = asyncio.run(analyze_async(data, "sample_invoice.png"))
+print(len(pages), pages[0].get("blocks"))
+PY
+```
+
+Output d'esempio:
+
+```text
+1 []
+```
+
+La prima cifra indica il numero di pagine elaborate; il secondo valore mostra i blocchi individuati nella prima pagina.
 
 ## 📂 Dataset
 

@@ -33,12 +33,8 @@ LLM_JSON_STRICT        = get_env_int("LLM_JSON_STRICT", 1)
 # Validation policy
 STRICT_VALIDATION      = get_env_str("STRICT_VALIDATION", "soft")  # soft|hard|off
 
-# PP-Structure policy
-PPSTRUCT_POLICY        = get_env_str("PPSTRUCT_POLICY", "auto")    # auto|always|never|auto_pages
-PPSTRUCT_SNIFF_MIN_ROWS   = get_env_int("PPSTRUCT_SNIFF_MIN_ROWS", 3)
-PPSTRUCT_SNIFF_MIN_COLS   = get_env_int("PPSTRUCT_SNIFF_MIN_COLS", 2)
-PPSTRUCT_SNIFF_COL_ALIGN_TOL = get_env_float("PPSTRUCT_SNIFF_COL_ALIGN_TOL", 0.06)
-PPSTRUCT_MAX_PAGES        = get_env_int("PPSTRUCT_MAX_PAGES", 9999)
+# OCR policy
+OCR_POLICY             = get_env_str("OCR_POLICY", "auto")    # auto|always|never|auto_pages
 
 # Logging
 LOG_LEVEL = get_env_str("LOG_LEVEL", "INFO")  # DEBUG|INFO|WARNING|ERROR
@@ -63,15 +59,13 @@ EMBEDDING_NORMALIZE    = get_env_int("EMBEDDING_NORMALIZE", 1)
 
 # External service base URLs (can be localhost in single-container)
 MARKITDOWN_BASE_URL = get_env_str("MARKITDOWN_BASE_URL", "http://127.0.0.1:8001")
-PPSTRUCT_BASE_URL   = get_env_str("PPSTRUCT_BASE_URL",   "http://127.0.0.1:8002")
 LLM_BASE_URL        = get_env_str("LLM_BASE_URL",        "http://127.0.0.1:8003")
 
 # Preflight + policy
 TEXT_LAYER_MIN_CHARS = get_env_int("TEXT_LAYER_MIN_CHARS", 200)
-ALLOW_PP_ON_DIGITAL  = get_env_int("ALLOW_PP_ON_DIGITAL", 1)  # 1=allow PP(table) even on digital pages if policy requires
-
+ 
 # Testing / mocks
-BACKENDS_MOCK = get_env_int("BACKENDS_MOCK", 1)  # 1=use mock responses for external services (MarkItDown, PP, LLM)
+BACKENDS_MOCK = get_env_int("BACKENDS_MOCK", 1)  # 1=use mock responses for external services (MarkItDown, OCR, LLM)
 HTTP_TIMEOUT_MS = get_env_int("HTTP_TIMEOUT_MS", 60000)
 
 DEBUG_DIR = get_env_str("DEBUG_DIR", "./data/debug")
