@@ -10,13 +10,13 @@ def _client():
 
 def test_overlays_bundle(monkeypatch):
     os.environ['DEBUG_OVERLAY']='1'
-    from clients import ppstructure_client as ppc
+    from clients import doctr_client as ocr
     from clients import markitdown_client as mk
     import clients.llm_local as _llm
 
-    async def fake_pp(data, filename, pages=None):
+    async def fake_ocr(data, filename, pages=None):
         return [{"page":1,"page_w":600,"page_h":800,"blocks":[{"type":"text","text":"Numero: 12345","bbox":[60,60,260,110]}]}]
-    monkeypatch.setattr(ppc, 'analyze_async', fake_pp)
+    monkeypatch.setattr(ocr, 'analyze_async', fake_ocr)
     async def fake_md(data, filename, mime=None): return ''
     monkeypatch.setattr(mk, 'convert_bytes_to_markdown_async', fake_md)
     def fake_chat(fields, llm_text, context):

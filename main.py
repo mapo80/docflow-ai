@@ -16,8 +16,8 @@ import indexer, retriever, align, reports
 from parse import (
     convert_markdown_async,
     extract_words_with_bboxes_pdf,
-    parse_with_ppstructure_async,
-    build_markdown_from_pp,
+    parse_with_ocr_async,
+    build_markdown_from_ocr,
 )
 from llm import extract_fields_async
 import jobs
@@ -51,11 +51,11 @@ app = FastAPI(
 async def _warmup_backends() -> None:
     """Preload heavy backends so the first request doesn't time out."""
     try:
-        from clients.ppstructure_light import _get_pp
-        _get_pp()
+        from clients.doctr_client import _get_doctr
+        _get_doctr()
         from clients.embeddings_local import get_local_embedder
         get_local_embedder()
-        log.info("Warmup finished: PaddleOCR and GGUF embedder loaded")
+        log.info("Warmup finished: DocTR and GGUF embedder loaded")
     except Exception as e:  # pragma: no cover - defensive
         log.exception("Warmup failure: %s", e)
 
@@ -118,7 +118,7 @@ async def _process_request(
         "file": filename,
         "template": schema.name,
         "policy": {
-            "ppstruct_policy": os.getenv("PPSTRUCT_POLICY", "auto"),
+            "ocr_policy": os.getenv("OCR_POLICY", "auto"),
         },
     }
     artifacts: Dict[str, str] = {}
@@ -162,7 +162,7 @@ async def _process_request(
                 )
     log.info("Generated %d tokens from digital text", len(tokens))
 
-    # simple heuristic for PP-Structure
+    # simple heuristic for OCR
     def markdown_has_table(md: str) -> bool:
         lines = md.splitlines()
         for i in range(len(lines) - 1):
@@ -170,30 +170,30 @@ async def _process_request(
                 return True
         return False
 
-    PPSTRUCT_POLICY = os.getenv("PPSTRUCT_POLICY", "auto")
-    pp_should_run_global = PPSTRUCT_POLICY == "always" or (PPSTRUCT_POLICY in ("auto", "auto_pages") and markdown_has_table(markdown))
-    need_pp_for_content = (not is_pdf) or (not is_digital_text)
+    OCR_POLICY = os.getenv("OCR_POLICY", "auto")
+    ocr_should_run_global = OCR_POLICY == "always" or (OCR_POLICY in ("auto", "auto_pages") and markdown_has_table(markdown))
+    need_ocr_for_content = (not is_pdf) or (not is_digital_text)
 
     pages_blocks: List[Dict[str, Any]] = []
-    t_pp = 0.0
-    if (pp_should_run_global or need_pp_for_content) and PPSTRUCT_POLICY != "auto_pages":
+    t_ocr = 0.0
+    if (ocr_should_run_global or need_ocr_for_content) and OCR_POLICY != "auto_pages":
         if emit:
-            emit("pp_start")
-        log.info("Calling PP-Structure analysis")
-        t_pp0 = time.time()
-        pages_blocks = await parse_with_ppstructure_async(data, filename, pages=None)
-        t_pp = time.time() - t_pp0
-        log.info("PP-Structure returned %d pages in %.3fs", len(pages_blocks), t_pp)
+            emit("ocr_start")
+        log.info("Calling OCR analysis")
+        t_ocr0 = time.time()
+        pages_blocks = await parse_with_ocr_async(data, filename, pages=None)
+        t_ocr = time.time() - t_ocr0
+        log.info("OCR returned %d pages in %.3fs", len(pages_blocks), t_ocr)
         jlog(
-            "ppstructure_done",
+            "ocr_done",
             id=req_id,
             pages=len(pages_blocks),
             total_blocks=sum(len(pg.get("blocks", [])) for pg in pages_blocks),
         )
 
     if not is_digital_text and pages_blocks:
-        markdown = build_markdown_from_pp(pages_blocks)
-        log.info("Markdown rebuilt from PP-Structure output")
+        markdown = build_markdown_from_ocr(pages_blocks)
+        log.info("Markdown rebuilt from OCR output")
 
     log.info("Splitting markdown into chunks")
     chunks = indexer.split_markdown_into_chunks(markdown)
@@ -355,14 +355,14 @@ async def _process_request(
 async def extract(
     file: UploadFile = File(...),
     template: str = Form(...),
-    pp_policy: str = Form("auto"),
+    ocr_policy: str = Form("auto"),
     overlays: bool = Form(False),
     _auth_ok: bool = Depends(get_api_key),
 ):
     log.info(
-        "Received /extract request: file=%s pp_policy=%s overlays=%s",
+        "Received /extract request: file=%s ocr_policy=%s overlays=%s",
         file.filename,
-        pp_policy,
+        ocr_policy,
         overlays,
     )
     data = await file.read()
@@ -384,15 +384,15 @@ async def extract(
 @app.post("/process-document")
 async def process_document(
     file: UploadFile = File(...),
-    pp_policy: str = Form("auto"),
+    ocr_policy: str = Form("auto"),
     llm_model: Optional[str] = Form(None),
     overlays: bool = Form(False),
     _auth_ok: bool = Depends(get_api_key),
 ):
     log.info(
-        "Received /process-document request: file=%s pp_policy=%s overlays=%s",
+        "Received /process-document request: file=%s ocr_policy=%s overlays=%s",
         file.filename,
-        pp_policy,
+        ocr_policy,
         overlays,
     )
     data = await file.read()

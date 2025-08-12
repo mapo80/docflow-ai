@@ -1,24 +1,29 @@
 
 import anyio, parse
 
-def test_build_markdown_from_pp_pages_and_cells():
+
+def test_build_markdown_from_ocr_pages():
     pages = [
         {
-            "page": 1, "page_w": 600, "page_h": 800,
+            "page": 1,
+            "page_w": 600,
+            "page_h": 800,
             "blocks": [
-                {"type": "text", "text": "Riga 1", "bbox": [10,10,200,30]},
-                {"type": "cell", "text": "A1", "bbox": [20,40,120,70]},
-                {"type": "cell", "text": "B1", "bbox": [130,40,230,70]},
+                {"type": "text", "text": "Riga 1", "bbox": [10, 10, 200, 30]},
+                {"type": "text", "text": "A1", "bbox": [20, 40, 120, 70]},
+                {"type": "text", "text": "B1", "bbox": [130, 40, 230, 70]},
             ],
         },
         {
-            "page": 2, "page_w": 600, "page_h": 800,
+            "page": 2,
+            "page_w": 600,
+            "page_h": 800,
             "blocks": [
-                {"type": "text", "text": "Pagina 2", "bbox": [10,10,200,30]}
+                {"type": "text", "text": "Pagina 2", "bbox": [10, 10, 200, 30]},
             ],
         },
     ]
-    md = parse.build_markdown_from_pp(pages)
+    md = parse.build_markdown_from_ocr(pages)
     assert "Riga 1" in md and "Pagina 2" in md and "A1" in md and "B1" in md
 
 def test_convert_markdown_async_pdf_exception_path(monkeypatch):

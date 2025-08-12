@@ -15,24 +15,24 @@
 - Launch the FastAPI app for manual testing:
   - `uvicorn main:app --reload`
 
-## Paddle & GGUF verification
+## DocTR & GGUF verification
 - Ensure runtime dependencies:
-  - System: `apt-get install -y libgl1` (required by OpenCV; missing this library results in `ImportError: libGL.so.1` during PaddleOCR import)
-  - Python: `pip install uvicorn fastapi paddlepaddle paddleocr pymupdf pdf2image python-multipart prometheus_client llama-cpp-python huggingface_hub setuptools`
+  - System: `apt-get install -y libgl1` (required by OpenCV)
+  - Python: `pip install uvicorn fastapi python-doctr pymupdf pdf2image python-multipart prometheus_client llama-cpp-python huggingface_hub setuptools`
 - Export required variables:
   - `MOCK_LLM=1`
-  - `MOCK_PP=0`
+  - `MOCK_OCR=0`
   - `BACKENDS_MOCK=0`
   - `HUGGINGFACE_TOKEN=<your_hf_token>`
 - Start the server:
   - `uvicorn main:app --reload`
 - From another shell, send a request:
-  - `curl -X POST "http://localhost:8000/process-document" -F "file=@dataset/sample_invoice.png" -F "pp_policy=auto" -F "overlays=true"`
+  - `curl -X POST "http://localhost:8000/process-document" -F "file=@dataset/sample_invoice.png" -F "ocr_policy=auto" -F "overlays=true"`
 - Check server logs for:
-  - `PP-Structure` analysis being invoked (Chart2Table and formula modules are disabled by default to prevent segfaults)
+  - `OCR` analysis being invoked
   - GGUF embedder initialization
-- The server performs a warmup at startup that downloads Paddle models and the GGUF embedder; the first launch may take several
+- The server performs a warmup at startup that downloads DocTR models and the GGUF embedder; the first launch may take several
   minutes. Subsequent requests should be fast once "Warmup finished" appears in logs.
 - If the server fails, test components individually:
-  - `python - <<'PY'\nfrom clients.ppstructure_light import analyze_async\nimport asyncio\nprint(asyncio.run(analyze_async(open('dataset/sample_invoice.png','rb').read(),'sample_invoice.png',None)))\nPY`
+  - `python - <<'PY'\nfrom clients.doctr_client import analyze_async\nimport asyncio\nprint(asyncio.run(analyze_async(open('dataset/sample_invoice.png','rb').read(),'sample_invoice.png',None)))\nPY`
   - `python - <<'PY'\nfrom clients.embeddings_local import embed_texts\nprint(len(embed_texts(['hello'])[0]))\nPY`

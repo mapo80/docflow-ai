@@ -21,32 +21,31 @@ def _make_png_bytes():
     import base64
     return base64.b64decode(b'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMB/XS9g4gAAAAASUVORK5CYII=')
 
-def test_pdf_digital_no_pp_by_default(monkeypatch):
-    pytest.xfail('PP preflight on digital PDF differs; skipping in this build')
-    os.environ["PPSTRUCT_POLICY"] = "auto"
-    os.environ["ALLOW_PP_ON_DIGITAL"] = "0"  # forbid PP on digital
-    called = {"pp": 0}
-    from clients import ppstructure_client as ppc
+def test_pdf_digital_no_ocr_by_default(monkeypatch):
+    pytest.xfail('OCR preflight on digital PDF differs; skipping in this build')
+    os.environ["OCR_POLICY"] = "auto"
+    called = {"ocr": 0}
+    from clients import doctr_client as ocr
 
-    async def fake_pp(data, filename, pages=None):
-        called["pp"] += 1
+    async def fake_ocr(data, filename, pages=None):
+        called["ocr"] += 1
         return []
 
-    monkeypatch.setattr(ppc, "analyze_async", fake_pp)
+    monkeypatch.setattr(ocr, "analyze_async", fake_ocr)
     pdf = _make_pdf_with_text()
     tpl = {"name":"t","fields":["iban"], "llm_text":"estrai IBAN"}
     r = client.post("/extract", headers=API, files={"file": ("t.pdf", pdf, "application/pdf")}, data={"template": json.dumps(tpl)})
     assert r.status_code == 200
-    # With digital text and ALLOW_PP_ON_DIGITAL=0, PP should not be called
-    assert called["pp"] == 0
+    # With digital text, OCR should not be called
+    assert called["ocr"] == 0
 
-def test_image_raster_uses_pp(monkeypatch):
-    os.environ["PPSTRUCT_POLICY"] = "always"
-    called = {"pp": 0}
-    from clients import ppstructure_client as ppc
+def test_image_raster_uses_ocr(monkeypatch):
+    os.environ["OCR_POLICY"] = "always"
+    called = {"ocr": 0}
+    from clients import doctr_client as ocr
 
-    async def fake_pp(data, filename, pages=None):
-        called["pp"] += 1
+    async def fake_ocr(data, filename, pages=None):
+        called["ocr"] += 1
         # Simulate OCR result with tokens and blocks
         return [{
             "page": 1,
@@ -56,12 +55,12 @@ def test_image_raster_uses_pp(monkeypatch):
             ]
         }]
 
-    monkeypatch.setattr(ppc, "analyze_async", fake_pp)
+    monkeypatch.setattr(ocr, "analyze_async", fake_ocr)
     png = _make_png_bytes()
     tpl = {"name":"img","fields":["iban","cf"], "llm_text":"estrai IBAN e CF"}
     r = client.post("/extract", headers=API, files={"file": ("x.png", png, "image/png")}, data={"template": json.dumps(tpl)})
     assert r.status_code == 200
-    assert called["pp"] == 1
+    assert called["ocr"] == 1
     js = r.json()
     assert "fields" in js
     # Ensure report available

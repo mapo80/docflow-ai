@@ -7,10 +7,10 @@ def test_overlays_multi_page(monkeypatch):
     os.environ['DEBUG_OVERLAY']='1'
     os.environ.setdefault('BACKENDS_MOCK','1')
     importlib.reload(config); importlib.reload(main)
-    from clients import ppstructure_client as ppc
+    from clients import doctr_client as ocr
     from clients import markitdown_client as mk
     import clients.llm_local as _llm
-    async def fake_pp(data, filename, pages=None):
+    async def fake_ocr(data, filename, pages=None):
         return [
             {"page":1,"page_w":600,"page_h":800,"blocks":[
                 {"type":"text","text":"Val 1","bbox":[60,60,160,110]},
@@ -20,7 +20,7 @@ def test_overlays_multi_page(monkeypatch):
                 {"type":"cell","text":"Cella","bbox":[80,200,300,240]}
             ]},
         ]
-    monkeypatch.setattr(ppc, 'analyze_async', fake_pp)
+    monkeypatch.setattr(ocr, 'analyze_async', fake_ocr)
     async def fake_md(data, filename, mime=None): return ''
     monkeypatch.setattr(mk, 'convert_bytes_to_markdown_async', fake_md)
     def fake_chat(fields, llm_text, context):

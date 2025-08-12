@@ -1,7 +1,7 @@
 """Namespace package providing hooks and test counters."""
 from __future__ import annotations
 
-_mock_counters = {"pp": 0, "md": 0}
+_mock_counters = {"ocr": 0, "md": 0}
 
 
 def reset_mock_counters() -> None:
