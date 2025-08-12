@@ -3,11 +3,11 @@ import os, json, importlib
 from fastapi.testclient import TestClient
 import main, config
 
-def test_image_pp_returns_empty_still_ok(monkeypatch):
-    os.environ["PPSTRUCT_POLICY"]="auto"
-    import clients.ppstructure_client as ppc
+def test_image_ocr_returns_empty_still_ok(monkeypatch):
+    os.environ["OCR_POLICY"]="auto"
+    import clients.doctr_client as ocr
     async def fake(data, filename, pages=None): return []
-    monkeypatch.setattr(ppc, "analyze_async", fake)
+    monkeypatch.setattr(ocr, "analyze_async", fake)
 
     importlib.reload(config); importlib.reload(main)
     c = TestClient(main.app)
