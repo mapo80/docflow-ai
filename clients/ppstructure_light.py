@@ -96,6 +96,7 @@ class PPStructureLight:
             use_chart_recognition=False,
             use_formula_recognition=False,
         )
+        log.info("PPStructureLight initialized (dpi=%s)", self.pdf_dpi)
 
     def extract_tokens(self, path: str) -> List[Dict[str, Any]]:
         pages = self._load_pages(path)
