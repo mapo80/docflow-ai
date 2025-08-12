@@ -87,6 +87,12 @@ class PPStructureLight:
         self.pp = PPStructureV3(
             layout_detection_model_name="PicoDet_layout_1x_table",
             layout_detection_model_dir=None,
+            # Disable heavy optional modules that trigger segfaults in minimal
+            # environments. Chart2Table and formula recognition are not needed
+            # for invoice extraction and can crash when their dependencies are
+            # missing or incompatible, resulting in an "Empty reply from server".
+            use_chart_recognition=False,
+            use_formula_recognition=False,
         )
 
     def extract_tokens(self, path: str) -> List[Dict[str, Any]]:

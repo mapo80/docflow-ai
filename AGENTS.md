@@ -18,7 +18,7 @@
 ## Paddle & GGUF verification
 - Ensure runtime dependencies:
   - System: `apt-get install -y libgl1`
-  - Python: `pip install uvicorn fastapi paddlepaddle paddleocr pymupdf pdf2image python-multipart prometheus_client llama-cpp-python huggingface_hub`
+  - Python: `pip install uvicorn fastapi paddlepaddle paddleocr pymupdf pdf2image python-multipart prometheus_client llama-cpp-python huggingface_hub setuptools`
 - Export required variables:
   - `MOCK_LLM=1`
   - `MOCK_PP=0`
@@ -29,7 +29,7 @@
 - From another shell, send a request:
   - `curl -X POST "http://localhost:8000/process-document" -F "file=@dataset/sample_invoice.png" -F "pp_policy=auto" -F "overlays=true"`
 - Check server logs for:
-  - `PP-Structure` analysis being invoked
+  - `PP-Structure` analysis being invoked (Chart2Table and formula modules are disabled by default to prevent segfaults)
   - GGUF embedder initialization
 - If the server fails, test components individually:
   - `python - <<'PY'\nfrom clients.ppstructure_light import analyze_async\nimport asyncio\nprint(asyncio.run(analyze_async(open('dataset/sample_invoice.png','rb').read(),'sample_invoice.png',None)))\nPY`
