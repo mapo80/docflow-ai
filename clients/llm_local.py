@@ -2,7 +2,14 @@
 from __future__ import annotations
 import os, json, re
 from typing import Dict, Any, List
-from llama_cpp import Llama
+# ``llama_cpp`` is an optional heavy dependency. Import lazily so tests can run
+# without the package installed.  A clear error will be raised if the LLM is
+# actually used without the dependency.
+try:  # pragma: no cover - import itself is side-effect free
+    from llama_cpp import Llama  # type: ignore
+except Exception:  # pragma: no cover - handled at runtime
+    Llama = None  # type: ignore
+
 from logger import get_logger
 
 LLM_GGUF_PATH   = os.getenv("LLM_GGUF_PATH", "/models/llm.gguf")
@@ -20,6 +27,11 @@ log = get_logger(__name__)
 def get_local_llm() -> Llama:
     global _GLOBAL_LLM
     if _GLOBAL_LLM is None:
+        if Llama is None:
+            raise RuntimeError(
+                "llama-cpp-python is required for local LLM functionality; install it "
+                "or provide a monkeypatched implementation"
+            )
         log.info("Initializing local LLM")
         _GLOBAL_LLM = Llama(
             model_path=LLM_GGUF_PATH,

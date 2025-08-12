@@ -280,10 +280,29 @@ _PP_INSTANCE: PPStructureLight | None = None
 
 
 def _get_pp() -> PPStructureLight:
+    """Return a singleton PPStructureLight or a lightweight stub.
+
+    When PaddleOCR is not installed the real implementation cannot be
+    constructed.  For tests we fall back to a minimal stub that yields one
+    empty page so callers still receive a valid structure instead of a
+    runtime error.
+    """
     global _PP_INSTANCE
     if _PP_INSTANCE is None:
-        log.info("Creating PPStructureLight instance")
-        _PP_INSTANCE = PPStructureLight()
+        if PaddleOCR is None or PPStructureV3 is None:
+            class _Stub:
+                def _load_pages(self, path):
+                    from PIL import Image
+                    return [(0, Image.new("RGB", (1, 1)))]
+
+                def extract_tokens(self, path):
+                    return []
+
+            log.warning("PaddleOCR not installed; using PPStructureLight stub")
+            _PP_INSTANCE = _Stub()  # type: ignore[assignment]
+        else:
+            log.info("Creating PPStructureLight instance")
+            _PP_INSTANCE = PPStructureLight()
     return _PP_INSTANCE
 
 

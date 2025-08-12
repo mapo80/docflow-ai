@@ -33,8 +33,12 @@ def test_llm_json_clean_and_codeblock(monkeypatch):
                data={"template": json.dumps(_tpl(["iban","totale"]))})
     assert r.status_code == 200
     data = r.json()
-    vals = {f["key"]: f["value"] for f in data["fields"]}
-    assert vals.get("iban","").startswith("IT00") and vals.get("totale","").startswith("123")
+    fields = data["fields"]
+    if isinstance(fields, list):
+        vals = {f["key"]: f["value"] for f in fields}
+    else:
+        vals = {k: v.get("value") for k, v in fields.items()}
+    assert vals.get("iban", "").startswith("IT00") and vals.get("totale", "").startswith("123")
 
 def test_llm_rag_fieldwise_long_doc(monkeypatch):
     # Force RAG by shrinking context and segments
