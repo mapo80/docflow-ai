@@ -8,16 +8,18 @@ import asyncio, tempfile
 from logger import get_logger
 import clients
 
+_PADDLE_IMPORT_ERROR: Optional[Exception] = None
 try:  # pragma: no cover - optional heavy dependency
     from paddleocr import PaddleOCR  # type: ignore
-
     try:
         from paddleocr import PPStructureV3  # type: ignore
-    except Exception:  # pragma: no cover - some installs lack PPStructureV3
+    except Exception as e:  # pragma: no cover - some installs lack PPStructureV3
         PPStructureV3 = None  # type: ignore
-except Exception:  # pragma: no cover - paddleocr not installed
+        _PADDLE_IMPORT_ERROR = e
+except Exception as e:  # pragma: no cover - paddleocr not installed
     PaddleOCR = None  # type: ignore
     PPStructureV3 = None  # type: ignore
+    _PADDLE_IMPORT_ERROR = e
 
 log = get_logger(__name__)
 
@@ -304,6 +306,14 @@ def _get_pp() -> PPStructureLight:
                 def extract_tokens(self, path):
                     return []
 
+            if _PADDLE_IMPORT_ERROR is not None:
+                log.warning(
+                    "PaddleOCR import failed: %s", _PADDLE_IMPORT_ERROR
+                )
+                if "libGL" in str(_PADDLE_IMPORT_ERROR):
+                    log.warning(
+                        "Missing system dependency libGL.so.1; install libgl1 to enable PaddleOCR"
+                    )
             log.warning("PaddleOCR not installed; using PPStructureLight stub")
             _PP_INSTANCE = _Stub()  # type: ignore[assignment]
         else:
