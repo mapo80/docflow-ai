@@ -12,18 +12,16 @@ def test_overlays_bundle(monkeypatch):
     os.environ['DEBUG_OVERLAY']='1'
     from clients import ppstructure_client as ppc
     from clients import markitdown_client as mk
-    import llm as _llm
+    import clients.llm_local as _llm
 
     async def fake_pp(data, filename, pages=None):
         return [{"page":1,"page_w":600,"page_h":800,"blocks":[{"type":"text","text":"Numero: 12345","bbox":[60,60,260,110]}]}]
     monkeypatch.setattr(ppc, 'analyze_async', fake_pp)
     async def fake_md(data, filename, mime=None): return ''
     monkeypatch.setattr(mk, 'convert_bytes_to_markdown_async', fake_md)
-    async def fake_chat(messages, max_tokens=1024):
-        import json as _json
-        payload = {"numero": {"value": "12345", "confidence": 0.9}}
-        return {"choices":[{"message":{"content": _json.dumps(payload)}}]}
-    monkeypatch.setattr(_llm, 'chat_json_async', fake_chat)
+    def fake_chat(fields, llm_text, context):
+        return {"numero": {"value": "12345", "confidence": 0.9}}
+    monkeypatch.setattr(_llm, 'chat_json', fake_chat, raising=True)
     png = b'\x89PNG\r\n\x1a\n' + b'0'*10
     tpl = {"name":"t","fields":["numero"], "llm_text":"estrai numero"}
     c = _client()

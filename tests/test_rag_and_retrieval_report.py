@@ -8,7 +8,6 @@ def test_rag_trigger_and_report(monkeypatch):
     # Force small context to trigger RAG
     os.environ["LLM_N_CTX"] = "512"
     os.environ["RAG_TOPK"] = "3"
-    os.environ["EMBEDDING_BACKEND"] = "tfidf"
 
     # Fake PP returns empty (not used here)
     from clients import ppstructure_client as ppc

@@ -6,6 +6,7 @@ import numpy as np
 from pdf2image import convert_from_path
 import asyncio, tempfile
 from logger import get_logger
+import clients
 
 try:  # pragma: no cover - optional heavy dependency
     from paddleocr import PaddleOCR  # type: ignore
@@ -334,6 +335,10 @@ async def analyze_async(
     data: bytes, filename: str, pages: Optional[list] = None
 ) -> List[Dict[str, Any]]:
     log.info("Calling PPStructureLight analyze_async")
+    try:
+        clients._mock_counters["pp"] += 1
+    except Exception:
+        pass
     loop = asyncio.get_event_loop()
     res = await loop.run_in_executor(None, _analyze_sync, data, filename, pages)
     log.info("PPStructureLight analyze_async completed")

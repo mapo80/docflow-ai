@@ -35,11 +35,15 @@ from clients import *  # noqa: F401,F403
 setup_logging()
 log = get_logger(__name__)
 
+docs_url = "/docs" if DOCS_ENABLED else None
+redoc_url = "/redoc" if DOCS_ENABLED else None
+openapi_url = "/openapi.json" if DOCS_ENABLED else None
+
 app = FastAPI(
     title="DocFlow AI",
-    docs_url="/docs",
-    redoc_url="/redoc",
-    openapi_url="/openapi.json",
+    docs_url=docs_url,
+    redoc_url=redoc_url,
+    openapi_url=openapi_url,
 )
 
 # ---------------- Security ----------------
@@ -306,11 +310,30 @@ async def _process_request(
     with open(os.path.join(rdir, "response.json"), "w", encoding="utf-8") as f:
         json.dump(response, f, ensure_ascii=False, indent=2)
 
-    reports.save_report_bundle(req_id, manifest, {}, {"response.json": os.path.join(rdir, "response.json")})
+    reports.save_report_bundle(
+        req_id, manifest, {}, {"response.json": os.path.join(rdir, "response.json")}
+    )
     log.info("Completed _process_request for %s", filename)
     return response
 
 # ---------------- Routes ----------------
+
+@app.post("/extract")
+async def extract(
+    file: UploadFile = File(...),
+    template: str = Form(...),
+    pp_policy: str = Form("auto"),
+    overlays: bool = Form(False),
+    _auth_ok: bool = Depends(get_api_key),
+):
+    data = await file.read()
+    try:
+        tpl = json.loads(template)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid template")
+    req_id = str(uuid.uuid4())
+    res = await _process_request(data, file.filename, tpl, req_id)
+    return JSONResponse(res)
 @app.post("/process-document")
 async def process_document(
     file: UploadFile = File(...),
@@ -327,6 +350,25 @@ async def process_document(
     req_id = str(uuid.uuid4())
     res = await _process_request(data, file.filename, tpl, req_id)
     return JSONResponse(res)
+
+
+@app.get("/reports/{rid}")
+async def get_report(rid: str, ok: bool = Depends(get_api_key)):
+    path = os.path.join(REPORTS_DIR, rid, "report.json")
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="Report not found")
+    with open(path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    return JSONResponse(data)
+
+
+@app.get("/reports/{rid}/bundle.zip")
+async def get_report_bundle(rid: str, ok: bool = Depends(get_api_key)):
+    dir_path = os.path.join(REPORTS_DIR, rid)
+    if not os.path.isdir(dir_path):
+        raise HTTPException(status_code=404, detail="Report not found")
+    data = reports.zip_report_dir(dir_path)
+    return Response(data, media_type="application/zip")
 
 @app.get("/metrics")
 async def metrics_route():

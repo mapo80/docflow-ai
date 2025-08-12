@@ -1,9 +1,7 @@
 
-import os
 from retriever import EphemeralIndex
 
 def test_query_bias_towards_anchor_word():
-    os.environ['EMBEDDING_BACKEND']='tfidf'
     chunks = [
         {"id":"a","text":"contratto pagamento banca iban abc","start":0},
         {"id":"b","text":"note varie e descrizioni","start":100},

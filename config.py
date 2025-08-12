@@ -54,15 +54,10 @@ def renormalize_weights(w_bm25: float, w_vec: float, w_anchor: float) -> Tuple[f
     total = max(1e-6, w_bm25 + w_vec + w_anchor)
     return w_bm25/total, w_vec/total, w_anchor/total
 
-# Embeddings backend
-# gguf | st | tfidf
-EMBEDDING_BACKEND      = get_env_str("EMBEDDING_BACKEND", "gguf")
+# Embeddings (GGUF only)
 EMBEDDING_GGUF_PATH    = get_env_str("EMBEDDING_GGUF_PATH", "/models/Qwen3-Embedding-0.6B-Q8_0.gguf")
 EMBEDDING_POOLING      = get_env_str("EMBEDDING_POOLING", "last")  # last|mean|cls (if supported by llama.cpp build)
 EMBEDDING_N_THREADS    = get_env_int("EMBEDDING_N_THREADS", 4)
-EMBEDDING_MODEL_NAME   = get_env_str("EMBEDDING_MODEL_NAME", "intfloat/multilingual-e5-small")  # for ST fallback
-EMBED_INSTRUCT_QUERY   = get_env_str("EMBED_INSTRUCT_QUERY", "")
-EMBED_INSTRUCT_DOC     = get_env_str("EMBED_INSTRUCT_DOC", "")
 EMBEDDING_NORMALIZE    = get_env_int("EMBEDDING_NORMALIZE", 1)
 
 
