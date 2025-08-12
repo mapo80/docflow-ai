@@ -50,4 +50,9 @@ def test_llm_and_embedding_integration(monkeypatch):
     assert r.status_code == 200
     data = r.json()
     assert called["emb"] > 0 and called["llm"] > 0
-    assert data["fields"][0]["value"].startswith("IT00")
+    fields = data["fields"]
+    if isinstance(fields, list):
+        val = fields[0]["value"]
+    else:
+        val = fields.get("iban", {}).get("value", "")
+    assert val.startswith("IT00")

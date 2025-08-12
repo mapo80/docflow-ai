@@ -2,7 +2,7 @@
 # FastAPI app with full pipeline and locations integration
 from __future__ import annotations
 
-import os, time, json, re, uuid, mimetypes
+import os, time, json, re, uuid, mimetypes, asyncio
 from typing import List, Dict, Any, Optional, Callable
 
 from fastapi import FastAPI, UploadFile, File, Form, Depends, Response, HTTPException, Header
@@ -45,6 +45,20 @@ app = FastAPI(
     redoc_url=redoc_url,
     openapi_url=openapi_url,
 )
+
+# ---------------- Job Queue Setup ----------------
+def _job_worker(payload: dict) -> dict:
+    """Background worker for the /jobs endpoints."""
+    return asyncio.run(
+        _process_request(
+            payload.get("data", b""),
+            payload.get("filename", "input.bin"),
+            payload.get("tpl", {}),
+            payload.get("job_id", str(uuid.uuid4())),
+        )
+    )
+
+jobs.global_q.start(int(os.getenv("JOB_WORKERS", "1")), _job_worker)
 
 # ---------------- Security ----------------
 def get_api_key(x_api_key: Optional[str] = Header(None)):
@@ -369,6 +383,33 @@ async def get_report_bundle(rid: str, ok: bool = Depends(get_api_key)):
         raise HTTPException(status_code=404, detail="Report not found")
     data = reports.zip_report_dir(dir_path)
     return Response(data, media_type="application/zip")
+
+
+@app.post("/jobs")
+async def submit_job(
+    file: UploadFile = File(...),
+    template: str = Form(...),
+    priority: int = Form(5),
+    _auth_ok: bool = Depends(get_api_key),
+):
+    data = await file.read()
+    try:
+        tpl = json.loads(template)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid template")
+    job_id = jobs.global_q.submit({"data": data, "filename": file.filename, "tpl": tpl}, int(priority))
+    return {"job_id": job_id}
+
+
+@app.get("/jobs/{job_id}/events")
+async def job_events(job_id: str, _auth_ok: bool = Depends(get_api_key)):
+    events = jobs.global_q.get_events(job_id)
+    lines = []
+    for ev in events:
+        lines.append(f"event: {ev['event']}")
+        lines.append(f"data: {json.dumps(ev['data'])}")
+        lines.append("")
+    return Response("\n".join(lines), media_type="text/event-stream")
 
 @app.get("/metrics")
 async def metrics_route():

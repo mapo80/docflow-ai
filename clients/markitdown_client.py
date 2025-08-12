@@ -3,14 +3,13 @@ from typing import Optional
 from logger import get_logger
 import clients
 
-try:
-    # pacchetto ufficiale
-    from markitdown import MarkItDown
-except ImportError as e:
-    raise ImportError(
-        "Il pacchetto 'markitdown' non è installato. "
-        "Esegui: pip install markitdown"
-    ) from e
+# Il pacchetto ``markitdown`` è opzionale e non sempre disponibile nei
+# contesti di test. Importiamo in modo pigro e rimandiamo l'errore solo al
+# momento dell'utilizzo effettivo della funzionalità.
+try:  # pragma: no cover - l'import diretto è difficile da testare
+    from markitdown import MarkItDown  # type: ignore
+except Exception:  # pragma: no cover - assenza gestita a runtime
+    MarkItDown = None  # type: ignore
 
 
 log = get_logger(__name__)
@@ -33,6 +32,11 @@ async def convert_bytes_to_markdown_async(
         clients._mock_counters["md"] += 1
     except Exception:
         pass
+    if MarkItDown is None:
+        raise RuntimeError(
+            "markitdown package is required for conversion; install it or "
+            "provide a mock implementation"
+        )
     md = MarkItDown()
 
     def _convert():
