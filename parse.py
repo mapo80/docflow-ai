@@ -1,10 +1,9 @@
 from __future__ import annotations
-from typing import List, Dict, Any, Tuple, Optional
-import fitz, io, mimetypes, os, asyncio, re
+from typing import List, Dict, Any, Optional
+import fitz, mimetypes, os, asyncio, re
 
-from config import MARKITDOWN_BASE_URL, PPSTRUCT_POLICY, TEXT_LAYER_MIN_CHARS, ALLOW_PP_ON_DIGITAL
 from clients.markitdown_client import convert_bytes_to_markdown_async
-import clients.ppstructure_client as ppstructure_client
+import clients.doctr_client as ocr_client
 from logger import get_logger
 
 log = get_logger(__name__)
@@ -46,7 +45,7 @@ def convert_markdown(data: bytes, filename: str = "input.bin") -> str:
 
     """Markdown-first: for PDFs use PyMuPDF/plain text; for images or other types, use MarkItDown (OCR disabled).
 
-    This is a *fallback* path—on raster/images we prefer PP-Structure to also get tokens & tables.
+    This is a *fallback* path—on raster/images we prefer DocTR to also get tokens.
     """
     mime = _guess_mime(filename, data[:8])
     if mime == 'application/pdf':
@@ -87,24 +86,24 @@ def extract_words_with_bboxes_pdf(data: bytes) -> list:
     log.info("Extracted %d pages of words", len(pages))
     return pages
 
-async def parse_with_ppstructure_async(data: bytes, filename: str, pages: Optional[list]=None):
-    """Async call to PP-Structure service."""
-    log.info("Invoking PP-Structure analyze_async for %s", filename)
+async def parse_with_ocr_async(data: bytes, filename: str, pages: Optional[list]=None):
+    """Async call to DocTR service."""
+    log.info("Invoking DocTR analyze_async for %s", filename)
     try:
-        return await ppstructure_client.analyze_async(data, filename, pages=pages)
+        return await ocr_client.analyze_async(data, filename, pages=pages)
     except Exception as e:
-        log.warning("PP-Structure analyze_async failed: %s", e)
+        log.warning("DocTR analyze_async failed: %s", e)
         return []
 
-def parse_with_ppstructure(data: bytes, filename: str, pages: Optional[list]=None):
+def parse_with_ocr(data: bytes, filename: str, pages: Optional[list]=None):
 
-    """Call PP-Structure service (async) and return page blocks; empty on failure."""
-    log.info("parse_with_ppstructure sync wrapper invoking analyze_async")
-    return asyncio.get_event_loop().run_until_complete(ppstructure_client.analyze_async(data, filename, pages=pages))
+    """Call DocTR service (async) and return page blocks; empty on failure."""
+    log.info("parse_with_ocr sync wrapper invoking analyze_async")
+    return asyncio.get_event_loop().run_until_complete(ocr_client.analyze_async(data, filename, pages=pages))
 
-def build_markdown_from_pp(pages_blocks: list) -> str:
-    """Construct simple Markdown from PP-Structure blocks (lines/tables)."""
-    log.info("Building markdown from PP-Structure output")
+def build_markdown_from_ocr(pages_blocks: list) -> str:
+    """Construct simple Markdown from OCR output."""
+    log.info("Building markdown from OCR output")
     out = []
     for pg in pages_blocks:
         for b in pg.get("blocks", []):

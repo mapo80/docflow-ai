@@ -9,11 +9,11 @@ def test_rag_trigger_and_report(monkeypatch):
     os.environ["LLM_N_CTX"] = "512"
     os.environ["RAG_TOPK"] = "3"
 
-    # Fake PP returns empty (not used here)
-    from clients import ppstructure_client as ppc
-    async def fake_pp(data, filename, pages=None):
+    # Fake OCR returns empty (not used here)
+    from clients import doctr_client as ocr
+    async def fake_ocr(data, filename, pages=None):
         return []
-    monkeypatch.setattr(ppc, "analyze_async", fake_pp)
+    monkeypatch.setattr(ocr, "analyze_async", fake_ocr)
 
     # Build a long PDF to exceed context
     md = "\n\n".join([f"# Sezione {i}\nContenuto con IBAN e CF e altre info {i}" for i in range(200)])

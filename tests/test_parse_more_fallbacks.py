@@ -12,9 +12,9 @@ def test_convert_markdown_async_unknown_binary_to_text():
     md = anyio.run(parse.convert_markdown_async, data, "blob.bin")
     assert isinstance(md, str)
 
-def test_parse_with_ppstructure_async_returns_empty(monkeypatch):
-    import clients.ppstructure_client as ppc
+def test_parse_with_ocr_async_returns_empty(monkeypatch):
+    import clients.doctr_client as ocr
     async def fake(data, filename, pages=None): return []
-    monkeypatch.setattr(ppc, "analyze_async", fake)
-    blocks = anyio.run(parse.parse_with_ppstructure_async, b"x", "x.png")
+    monkeypatch.setattr(ocr, "analyze_async", fake)
+    blocks = anyio.run(parse.parse_with_ocr_async, b"x", "x.png")
     assert blocks == []

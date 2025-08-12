@@ -11,10 +11,9 @@ API = {"x-api-key": os.environ["API_KEY"]}
 def _tpl(fields):
     return {"name":"tpl","fields":fields, "llm_text":"trova i campi richiesti"}
 
-def test_pdf_digital_no_pp_on_auto_when_no_tables():
+def test_pdf_digital_no_ocr_on_auto_when_no_tables():
     os.environ["TEXT_LAYER_MIN_CHARS"] = "2"
-    os.environ["PPSTRUCT_POLICY"] = "auto"
-    os.environ["ALLOW_PP_ON_DIGITAL"] = "0"
+    os.environ["OCR_POLICY"] = "auto"
     clients.reset_mock_counters()
 
     pdf = make_pdf_text(1, "Questo è un PDF digitale con un IBAN: IT60X0542811101000000123456")
@@ -22,26 +21,26 @@ def test_pdf_digital_no_pp_on_auto_when_no_tables():
     assert r.status_code == 200
     cnt = clients.get_mock_counters()
     # No PP calls because digital and no table sniff in MD
-    assert cnt["pp"] == 0
+    assert cnt["ocr"] == 0
 
-def test_pdf_raster_calls_pp_once():
+def test_pdf_raster_calls_ocr_once():
     os.environ["TEXT_LAYER_MIN_CHARS"] = "10000"  # force raster classification
-    os.environ["PPSTRUCT_POLICY"] = "auto"
+    os.environ["OCR_POLICY"] = "auto"
     clients.reset_mock_counters()
     pdf = make_pdf_text(1, "")  # empty text -> treated as raster by threshold
     r = client.post("/extract", headers=API, files={"file": ("scan.pdf", pdf, "application/pdf")}, data={"template": json.dumps(_tpl(["iban","totale"]))})
     assert r.status_code == 200
     cnt = clients.get_mock_counters()
-    assert cnt["pp"] == 1  # one page -> one PP call
+    assert cnt["ocr"] == 1  # one page -> one OCR call
 
-def test_image_goes_to_pp_and_tokens_exist():
+def test_image_goes_to_ocr_and_tokens_exist():
     clients.reset_mock_counters()
     # minimal PNG header + bytes (content doesn't matter in mock)
     png_bytes = b"\x89PNG\r\n\x1a\n" + b"0"*100
     r = client.post("/extract", headers=API, files={"file": ("img.png", png_bytes, "image/png")}, data={"template": json.dumps(_tpl(["iban","totale"]))})
     assert r.status_code == 200
     cnt = clients.get_mock_counters()
-    assert cnt["pp"] >= 1
+    assert cnt["ocr"] >= 1
 
 def test_rag_singlepass_switch():
     # Small doc => single-pass

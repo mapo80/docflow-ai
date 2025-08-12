@@ -25,8 +25,11 @@ EMB_PATH = os.getenv("EMBEDDINGS_GGUF_PATH", "/models/embeddings.gguf")
 EMB_THREADS = int(os.getenv("EMB_THREADS", str(os.cpu_count() or 4)))
 EMB_N_CTX = int(os.getenv("EMB_N_CTX", "512"))
 EMB_GPU_LAYERS = int(os.getenv("EMB_GPU_LAYERS", "0"))
-HF_REPO = os.getenv("EMB_HF_REPO", "Mungert/Qwen3-Embedding-0.6B-GGUF")
-HF_FILE = os.getenv("EMB_HF_FILE", "Qwen3-Embedding-0.6B-q4_k_m.gguf")
+# Default to a small, CPU-friendly model to ease local embedding tests.
+# The repository and file can still be overridden via environment variables
+# `EMB_HF_REPO` and `EMB_HF_FILE` if a different model is desired.
+HF_REPO = os.getenv("EMB_HF_REPO", "nomic-ai/nomic-embed-text-v1.5-GGUF")
+HF_FILE = os.getenv("EMB_HF_FILE", "nomic-embed-text-v1.5.Q4_K_M.gguf")
 HF_TOKEN = os.getenv("HUGGINGFACE_TOKEN")
 
 _EMB: Llama | None = None

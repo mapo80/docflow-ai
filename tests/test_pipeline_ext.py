@@ -10,10 +10,9 @@ def _client():
 
 def _tpl(fields): return {"name":"tpl","fields":fields, "llm_text":"estrai i campi richiesti"}
 
-def test_pdf_digital_no_pp_and_bundle():
+def test_pdf_digital_no_ocr_and_bundle():
     os.environ['MOCK_LLM']='1'
-    os.environ["PPSTRUCT_POLICY"]="auto"
-    os.environ["ALLOW_PP_ON_DIGITAL"]="0"
+    os.environ["OCR_POLICY"]="auto"
     os.environ["TEXT_LAYER_MIN_CHARS"]="10"
     clients.reset_mock_counters()
     c = _client()
@@ -23,7 +22,7 @@ def test_pdf_digital_no_pp_and_bundle():
                data={"template": json.dumps(_tpl(["iban"]))})
     assert r.status_code == 200
     cnt = clients.get_mock_counters()
-    assert cnt["pp"] == 0
+    assert cnt["ocr"] == 0
     rid = r.json()["request_id"]
     zb = c.get(f"/reports/{rid}/bundle.zip", headers={"x-api-key": os.environ["API_KEY"]})
     assert zb.status_code == 200
@@ -31,10 +30,9 @@ def test_pdf_digital_no_pp_and_bundle():
     names = set(z.namelist())
     assert "md.txt" in names and "response.json" in names
 
-def test_image_raster_pp_and_tokens_exist():
+def test_image_raster_ocr_and_tokens_exist():
     os.environ['MOCK_LLM']='1'
-    os.environ["PPSTRUCT_POLICY"]="auto"
-    os.environ["ALLOW_PP_ON_DIGITAL"]="1"
+    os.environ["OCR_POLICY"]="auto"
     clients.reset_mock_counters()
     c = _client()
     png = b"\x89PNG\r\n\x1a\n" + b"0"*200
@@ -43,7 +41,7 @@ def test_image_raster_pp_and_tokens_exist():
                data={"template": json.dumps(_tpl(["iban","totale"]))})
     assert r.status_code == 200
     cnt = clients.get_mock_counters()
-    assert cnt["pp"] >= 1
+    assert cnt["ocr"] >= 1
     rid = r.json()["request_id"]
     # tokens file should exist and have at least one line
     import os as _os
