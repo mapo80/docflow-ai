@@ -1,9 +1,9 @@
 import os
-import os
 import time
 import httpx
 import subprocess
 from pathlib import Path
+import pytest
 
 SAMPLE_IMG = Path("dataset/sample_invoice.png")
 
@@ -26,7 +26,8 @@ def test_process_document_png_integration(tmp_path):
     env.setdefault("MOCK_LLM", "1")
     env.setdefault("BACKENDS_MOCK", "0")
     token = env.get("HUGGINGFACE_TOKEN")
-    assert token, "HUGGINGFACE_TOKEN must be set"
+    if not token:
+        pytest.skip("HUGGINGFACE_TOKEN must be set")
 
     port = "8009"
     proc = subprocess.Popen(
