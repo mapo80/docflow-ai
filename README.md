@@ -126,7 +126,7 @@ Process a single document (PDF or image) and return structured fields and (optio
 | Name            | Type  | Required | Default | Description                                                                 |
 |-----------------|-------|----------|---------|-----------------------------------------------------------------------------|
 | `file`          | File  | Yes      | —       | PDF or image (`.pdf`, `.png`, `.jpg` by default).                           |
-| `ocr_policy`     | str   | No       | `auto`  | One of: `always`, `never`, `auto`. Controls OCR usage. Legacy field `pp_policy` is also accepted. |
+| `ocr_policy`     | str   | No       | `auto`  | One of: `always`, `never`, `auto`. Controls OCR usage. |
 | `llm_model`     | str   | No       | —       | Logical model ID/name resolved by the LLM client.                           |
 | `overlays`      | bool  | No       | `false` | If `true`, include `overlays[]` with bounding boxes for recognized fields. |
 

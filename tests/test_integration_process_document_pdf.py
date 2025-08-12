@@ -40,7 +40,7 @@ def test_process_document_pdf_integration(tmp_path):
         wait_for_server(f"http://127.0.0.1:{port}/")
         with SAMPLE_PDF.open("rb") as f:
             files = {"file": ("sample_invoice.pdf", f, "application/pdf")}
-            data = {"pp_policy": "auto", "overlays": "true"}
+            data = {"ocr_policy": "auto", "overlays": "true"}
             headers = {"x-api-key": env.get("API_KEY", "")}
             r = httpx.post(
                 f"http://127.0.0.1:{port}/process-document",
