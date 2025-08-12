@@ -3,6 +3,7 @@ from typing import Any
 import tempfile
 
 import numpy as np
+from PIL import Image
 
 import clients.ppstructure_light as ppl
 from tests._pdfutils import make_pdf_text
@@ -52,6 +53,7 @@ def test_extract_tokens(monkeypatch):
     path = _make_pdf_path()
     monkeypatch.setattr(ppl, "PaddleOCR", DummyOCR)
     monkeypatch.setattr(ppl, "PPStructureV3", DummyPP)
+    monkeypatch.setattr(ppl, "convert_from_path", lambda p, dpi=200: [Image.new("RGB", (10,10), "white")])
     pp = ppl.PPStructureLight()
     tokens = pp.extract_tokens(path)
     cats = {t["category"] for t in tokens}
@@ -67,6 +69,7 @@ def test_extract_tokens_without_cell_text(monkeypatch):
     path = _make_pdf_path()
     monkeypatch.setattr(ppl, "PaddleOCR", DummyOCR)
     monkeypatch.setattr(ppl, "PPStructureV3", DummyPP)
+    monkeypatch.setattr(ppl, "convert_from_path", lambda p, dpi=200: [Image.new("RGB", (10,10), "white")])
     pp = ppl.PPStructureLight(include_cell_text=False)
     tokens = pp.extract_tokens(path)
     cell_token = next(t for t in tokens if t["category"] == "cell")

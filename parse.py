@@ -33,7 +33,9 @@ async def convert_markdown_async(data: bytes, filename: str = "input.bin") -> st
             pass
     try:
         log.info("Calling MarkItDown for %s", filename)
-        return await convert_bytes_to_markdown_async(data, filename, mime)
+        md = await convert_bytes_to_markdown_async(data, filename, mime)
+        log.info("MarkItDown completed for %s (len=%d)", filename, len(md))
+        return md
     except Exception:
         try:
             return data.decode("utf-8", errors="ignore")

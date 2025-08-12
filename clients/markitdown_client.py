@@ -1,5 +1,7 @@
 import asyncio
 from typing import Optional
+from logger import get_logger
+import clients
 
 try:
     # pacchetto ufficiale
@@ -11,11 +13,26 @@ except ImportError as e:
     ) from e
 
 
-async def convert_bytes_to_markdown_async(content: bytes, mime_type: Optional[str] = None) -> str:
+log = get_logger(__name__)
+
+
+async def convert_bytes_to_markdown_async(
+    content: bytes, filename: str = "input.bin", mime_type: Optional[str] = None
+) -> str:
+    """Converte bytes (PDF/immagine/altro) in markdown usando MarkItDown.
+
+    È eseguito in thread pool per non bloccare l'event loop e logga inizio/fine.
     """
-    Converte bytes (PDF/immagine/altro) in markdown usando MarkItDown.
-    È eseguito in thread pool per non bloccare l'event loop.
-    """
+    log.info(
+        "Starting MarkItDown conversion for %s (%d bytes, mime=%s)",
+        filename,
+        len(content),
+        mime_type,
+    )
+    try:
+        clients._mock_counters["md"] += 1
+    except Exception:
+        pass
     md = MarkItDown()
 
     def _convert():
@@ -30,4 +47,6 @@ async def convert_bytes_to_markdown_async(content: bytes, mime_type: Optional[st
         return getattr(res, "text_content", str(res))
 
     loop = asyncio.get_running_loop()
-    return await loop.run_in_executor(None, _convert)
+    out = await loop.run_in_executor(None, _convert)
+    log.info("MarkItDown conversion done for %s (len=%d)", filename, len(out))
+    return out

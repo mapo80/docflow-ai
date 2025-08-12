@@ -12,16 +12,15 @@ def _client():
     return TestClient(main.app)
 
 def test_llm_json_clean_and_codeblock(monkeypatch):
-    # Force non-mock path by patching chat_json_async directly on llm module
-    import llm as _llm
-    async def fake_chat_json_async(messages, max_tokens=1024):
-        # For single_pass we expect both fields to be returned in one call
-        return {"choices":[{"message":{"content": json.dumps({
-            "iban":{"value":"IT00A","confidence":0.9},
-            "totale":{"value":"123,45","confidence":0.8}
-        })}}]}
-        return {"choices":[{"message":{"content": "```json\n{\n \"totale\":{\"value\":\"123,45\",\"confidence\":0.8}\n}\n```"}}]}
-    monkeypatch.setattr(_llm, "chat_json_async", fake_chat_json_async)
+    import clients.llm_local as _llm_local
+
+    def fake_chat_json(fields, llm_text, context):
+        return {
+            "iban": {"value": "IT00A", "confidence": 0.9},
+            "totale": {"value": "123,45", "confidence": 0.8},
+        }
+
+    monkeypatch.setattr(_llm_local, "chat_json", fake_chat_json, raising=True)
 
     os.environ["MOCK_LLM"]="0"
     os.environ["LLM_N_CTX"]="1024"
@@ -43,15 +42,15 @@ def test_llm_rag_fieldwise_long_doc(monkeypatch):
     os.environ["LLM_N_CTX"]="256"
     os.environ["RAG_MIN_SEGMENTS"]="1"
 
-    import llm as _llm
-    async def fake_chat_json_async(messages, max_tokens=1024):
-        user = next(m for m in messages if m.get("role")=="user")["content"]
-        if "iban" in user:
-            payload = {"iban":{"value":"IT99X","confidence":0.8}}
+    import clients.llm_local as _llm_local
+
+    def fake_chat_json(fields, llm_text, context):
+        if "iban" in fields:
+            return {"iban": {"value": "IT99X", "confidence": 0.8}}
         else:
-            payload = {"totale":{"value":"999,00","confidence":0.65}}
-        return {"choices":[{"message":{"content": json.dumps(payload)}}]}
-    monkeypatch.setattr(_llm, "chat_json_async", fake_chat_json_async)
+            return {"totale": {"value": "999,00", "confidence": 0.65}}
+
+    monkeypatch.setattr(_llm_local, "chat_json", fake_chat_json, raising=True)
 
     c = _client()
     longtext = " ".join(f"token{i}" for i in range(5000))

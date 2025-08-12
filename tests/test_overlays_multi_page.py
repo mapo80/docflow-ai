@@ -9,7 +9,7 @@ def test_overlays_multi_page(monkeypatch):
     importlib.reload(config); importlib.reload(main)
     from clients import ppstructure_client as ppc
     from clients import markitdown_client as mk
-    import llm as _llm
+    import clients.llm_local as _llm
     async def fake_pp(data, filename, pages=None):
         return [
             {"page":1,"page_w":600,"page_h":800,"blocks":[
@@ -23,11 +23,9 @@ def test_overlays_multi_page(monkeypatch):
     monkeypatch.setattr(ppc, 'analyze_async', fake_pp)
     async def fake_md(data, filename, mime=None): return ''
     monkeypatch.setattr(mk, 'convert_bytes_to_markdown_async', fake_md)
-    async def fake_chat(messages, max_tokens=1024):
-        import json as _json
-        payload = {"a": {"value": "Val 1", "confidence": 0.9}, "b": {"value": "Val 2", "confidence": 0.9}}
-        return {"choices":[{"message":{"content": _json.dumps(payload)}}]}
-    monkeypatch.setattr(_llm, 'chat_json_async', fake_chat)
+    def fake_chat(fields, llm_text, context):
+        return {"a": {"value": "Val 1", "confidence": 0.9}, "b": {"value": "Val 2", "confidence": 0.9}}
+    monkeypatch.setattr(_llm, 'chat_json', fake_chat, raising=True)
     c = TestClient(main.app)
     png = b'\x89PNG\r\n\x1a\n' + b'0'*128
     tpl = {"name":"t","fields":["a","b"], "llm_text":"estrai"}
