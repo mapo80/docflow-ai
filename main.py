@@ -46,6 +46,19 @@ app = FastAPI(
     openapi_url=openapi_url,
 )
 
+
+@app.on_event("startup")
+async def _warmup_backends() -> None:
+    """Preload heavy backends so the first request doesn't time out."""
+    try:
+        from clients.ppstructure_light import _get_pp
+        _get_pp()
+        from clients.embeddings_local import get_local_embedder
+        get_local_embedder()
+        log.info("Warmup finished: PaddleOCR and GGUF embedder loaded")
+    except Exception as e:  # pragma: no cover - defensive
+        log.exception("Warmup failure: %s", e)
+
 # ---------------- Job Queue Setup ----------------
 def _job_worker(payload: dict) -> dict:
     """Background worker for the /jobs endpoints."""

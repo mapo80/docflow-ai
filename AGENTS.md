@@ -31,6 +31,8 @@
 - Check server logs for:
   - `PP-Structure` analysis being invoked (Chart2Table and formula modules are disabled by default to prevent segfaults)
   - GGUF embedder initialization
+- The server performs a warmup at startup that downloads Paddle models and the GGUF embedder; the first launch may take several
+  minutes. Subsequent requests should be fast once "Warmup finished" appears in logs.
 - If the server fails, test components individually:
   - `python - <<'PY'\nfrom clients.ppstructure_light import analyze_async\nimport asyncio\nprint(asyncio.run(analyze_async(open('dataset/sample_invoice.png','rb').read(),'sample_invoice.png',None)))\nPY`
   - `python - <<'PY'\nfrom clients.embeddings_local import embed_texts\nprint(len(embed_texts(['hello'])[0]))\nPY`
