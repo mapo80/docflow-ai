@@ -1,11 +1,10 @@
 import os
-import os
 import time
 import httpx
 import subprocess
 from pathlib import Path
 
-SAMPLE_IMG = Path("dataset/sample_invoice.png")
+SAMPLE_PDF = Path("dataset/sample_invoice.pdf")
 
 
 def wait_for_server(url: str, timeout: int = 180):
@@ -21,14 +20,14 @@ def wait_for_server(url: str, timeout: int = 180):
     raise RuntimeError("server did not start in time")
 
 
-def test_process_document_png_integration(tmp_path):
+def test_process_document_pdf_integration(tmp_path):
     env = os.environ.copy()
     env.setdefault("MOCK_LLM", "1")
     env.setdefault("BACKENDS_MOCK", "0")
     token = env.get("HUGGINGFACE_TOKEN")
     assert token, "HUGGINGFACE_TOKEN must be set"
 
-    port = "8009"
+    port = "8010"
     proc = subprocess.Popen(
         ["uvicorn", "main:app", "--port", port],
         env=env,
@@ -39,9 +38,9 @@ def test_process_document_png_integration(tmp_path):
     )
     try:
         wait_for_server(f"http://127.0.0.1:{port}/")
-        with SAMPLE_IMG.open("rb") as f:
-            files = {"file": ("sample_invoice.png", f, "image/png")}
-            data = {"ocr_policy": "auto", "overlays": "true"}
+        with SAMPLE_PDF.open("rb") as f:
+            files = {"file": ("sample_invoice.pdf", f, "application/pdf")}
+            data = {"pp_policy": "auto", "overlays": "true"}
             headers = {"x-api-key": env.get("API_KEY", "")}
             r = httpx.post(
                 f"http://127.0.0.1:{port}/process-document",

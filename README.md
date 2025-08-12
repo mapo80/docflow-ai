@@ -126,7 +126,7 @@ Process a single document (PDF or image) and return structured fields and (optio
 | Name            | Type  | Required | Default | Description                                                                 |
 |-----------------|-------|----------|---------|-----------------------------------------------------------------------------|
 | `file`          | File  | Yes      | —       | PDF or image (`.pdf`, `.png`, `.jpg` by default).                           |
-| `ocr_policy`     | str   | No       | `auto`  | One of: `always`, `never`, `auto`. Controls OCR usage.             |
+| `ocr_policy`     | str   | No       | `auto`  | One of: `always`, `never`, `auto`. Controls OCR usage. Legacy field `pp_policy` is also accepted. |
 | `llm_model`     | str   | No       | —       | Logical model ID/name resolved by the LLM client.                           |
 | `overlays`      | bool  | No       | `false` | If `true`, include `overlays[]` with bounding boxes for recognized fields. |
 
@@ -389,6 +389,8 @@ source .venv/bin/activate  # on Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
+> **Note:** the Markdown converter dependency `markitdown` is pinned to version `0.1.2` for compatibility.
+
 ### 8.3 Run (development)
 
 ```bash
@@ -397,6 +399,14 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 **Open:** `http://localhost:8000/docs`
+
+When dependencies are installed (DocTR models and the GGUF embedder), the startup logs include lines like:
+
+```
+INFO clients.doctr_client Creating DocTRClient instance
+INFO clients.embeddings_local Initializing local embedder from /models/embeddings.gguf
+INFO main Warmup finished: DocTR and GGUF embedder loaded
+```
 
 ### 8.4 Run with mocks (offline)
 

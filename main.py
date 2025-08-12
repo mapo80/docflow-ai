@@ -356,9 +356,11 @@ async def extract(
     file: UploadFile = File(...),
     template: str = Form(...),
     ocr_policy: str = Form("auto"),
+    pp_policy: Optional[str] = Form(None),
     overlays: bool = Form(False),
     _auth_ok: bool = Depends(get_api_key),
 ):
+    ocr_policy = pp_policy or ocr_policy
     log.info(
         "Received /extract request: file=%s ocr_policy=%s overlays=%s",
         file.filename,
@@ -385,10 +387,12 @@ async def extract(
 async def process_document(
     file: UploadFile = File(...),
     ocr_policy: str = Form("auto"),
+    pp_policy: Optional[str] = Form(None),
     llm_model: Optional[str] = Form(None),
     overlays: bool = Form(False),
     _auth_ok: bool = Depends(get_api_key),
 ):
+    ocr_policy = pp_policy or ocr_policy
     log.info(
         "Received /process-document request: file=%s ocr_policy=%s overlays=%s",
         file.filename,
