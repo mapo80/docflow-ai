@@ -17,7 +17,7 @@
 
 ## Paddle & GGUF verification
 - Ensure runtime dependencies:
-  - System: `apt-get install -y libgl1`
+  - System: `apt-get install -y libgl1` (required by OpenCV; missing this library results in `ImportError: libGL.so.1` during PaddleOCR import)
   - Python: `pip install uvicorn fastapi paddlepaddle paddleocr pymupdf pdf2image python-multipart prometheus_client llama-cpp-python huggingface_hub setuptools`
 - Export required variables:
   - `MOCK_LLM=1`
