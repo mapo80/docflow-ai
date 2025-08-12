@@ -122,6 +122,7 @@ async def _process_request(
     is_pdf = (mime == "application/pdf") or (data[:4] == b"%PDF")
     log.info("Extracting words with bboxes from PDF: %s", is_pdf)
     pages_words = extract_words_with_bboxes_pdf(data) if is_pdf else []
+    log.info("PDF extraction produced %d pages", len(pages_words))
 
     total_chars = 0
     for p in pages_words:
@@ -130,6 +131,7 @@ async def _process_request(
             total_chars += len(t)
     thr = int(os.getenv("TEXT_LAYER_MIN_CHARS", "1"))
     is_digital_text = bool(pages_words and total_chars >= thr)
+    log.info("Detected digital text=%s (chars=%d, threshold=%d)", is_digital_text, total_chars, thr)
 
     tokens = []
     if is_digital_text:
@@ -145,6 +147,7 @@ async def _process_request(
                         "line_id": None,
                     }
                 )
+    log.info("Generated %d tokens from digital text", len(tokens))
 
     # simple heuristic for PP-Structure
     def markdown_has_table(md: str) -> bool:
@@ -177,10 +180,12 @@ async def _process_request(
 
     if not is_digital_text and pages_blocks:
         markdown = build_markdown_from_pp(pages_blocks)
+        log.info("Markdown rebuilt from PP-Structure output")
 
     log.info("Splitting markdown into chunks")
     chunks = indexer.split_markdown_into_chunks(markdown)
     md_tokens_est = indexer.approximate_tokens(markdown)
+    log.info("Markdown split into %d chunks (est %d tokens)", len(chunks), md_tokens_est)
     overhead = int(os.getenv("RAG_CTX_MARGIN_TOKENS", "256")) + 256
     LLM_N_CTX = int(os.getenv("LLM_N_CTX", "4096"))
     c_eff = max(1, LLM_N_CTX - overhead)
@@ -283,6 +288,7 @@ async def _process_request(
         try:
             import overlay as _overlay
             debug_files = _overlay.save_overlays(data, matches_per_page, out_dir, filename or "input.bin")
+            log.info("Saved %d overlay debug files", len(debug_files))
         except Exception as _e:
             jlog("overlay_error", id=req_id, error=str(_e))
 
@@ -340,13 +346,27 @@ async def extract(
     overlays: bool = Form(False),
     _auth_ok: bool = Depends(get_api_key),
 ):
+    log.info(
+        "Received /extract request: file=%s pp_policy=%s overlays=%s",
+        file.filename,
+        pp_policy,
+        overlays,
+    )
     data = await file.read()
+    log.info("Read %d bytes from %s", len(data), file.filename)
     try:
         tpl = json.loads(template)
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid template")
     req_id = str(uuid.uuid4())
-    res = await _process_request(data, file.filename, tpl, req_id)
+    try:
+        res = await _process_request(data, file.filename, tpl, req_id)
+    except AppError:
+        raise
+    except Exception as e:
+        log.exception("/extract internal error for %s", file.filename)
+        raise HTTPException(status_code=500, detail="ProcessingFailed") from e
+    log.info("/extract completed for %s", file.filename)
     return JSONResponse(res)
 @app.post("/process-document")
 async def process_document(
@@ -356,13 +376,31 @@ async def process_document(
     overlays: bool = Form(False),
     _auth_ok: bool = Depends(get_api_key),
 ):
+    log.info(
+        "Received /process-document request: file=%s pp_policy=%s overlays=%s",
+        file.filename,
+        pp_policy,
+        overlays,
+    )
     data = await file.read()
+    log.info("Read %d bytes from %s", len(data), file.filename)
     try:
-        tpl = {"name": "default", "fields": os.getenv("FIELDS", "invoice_number,invoice_date,total").split(","), "llm_text": os.getenv("LLM_TEXT", "Extract fields.")}
+        tpl = {
+            "name": "default",
+            "fields": os.getenv("FIELDS", "invoice_number,invoice_date,total").split(","),
+            "llm_text": os.getenv("LLM_TEXT", "Extract fields."),
+        }
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid template")
     req_id = str(uuid.uuid4())
-    res = await _process_request(data, file.filename, tpl, req_id)
+    try:
+        res = await _process_request(data, file.filename, tpl, req_id)
+    except AppError:
+        raise
+    except Exception as e:
+        log.exception("/process-document internal error for %s", file.filename)
+        raise HTTPException(status_code=500, detail="ProcessingFailed") from e
+    log.info("/process-document completed for %s", file.filename)
     return JSONResponse(res)
 
 
